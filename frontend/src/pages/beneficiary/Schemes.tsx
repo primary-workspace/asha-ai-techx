@@ -1,18 +1,47 @@
 import { useStore } from '../../store/useStore';
-import { ArrowLeft, Search, ArrowUpRight, CheckCircle2, XCircle, AlertCircle, Info, Syringe, Baby, Check } from 'lucide-react';
+import { ArrowLeft, Search, ArrowUpRight, CheckCircle2, XCircle, AlertCircle, Info, Check, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Scheme, BeneficiaryProfile } from '../../types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from '../../hooks/useTranslation';
+import { enrollmentService, schemeService } from '../../services';
+import { useToast } from '../../store/useToast';
 
 export default function BeneficiarySchemes() {
-  const { schemes, currentUser, beneficiaries, enrollments } = useStore();
+  const { schemes: storeSchemes, currentUser, beneficiaries, enrollments, fetchInitialData } = useStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { addToast } = useToast();
   const [filter, setFilter] = useState<'all' | 'financial' | 'nutrition'>('all');
   const [checkingScheme, setCheckScheme] = useState<Scheme | null>(null);
-  
+  const [enrolling, setEnrolling] = useState(false);
+  const [localSchemes, setLocalSchemes] = useState<Scheme[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch schemes on mount
+  useEffect(() => {
+    const loadSchemes = async () => {
+      if (storeSchemes.length > 0) {
+        setLocalSchemes(storeSchemes);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const schemes = await schemeService.getActive();
+        setLocalSchemes(schemes);
+      } catch (err) {
+        console.error('Failed to load schemes:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSchemes();
+  }, [storeSchemes]);
+
+  const schemes = localSchemes.length > 0 ? localSchemes : storeSchemes;
+
   const profile = beneficiaries.find(b => b.userId === currentUser?.id);
 
   // Helper to check if user is enrolled
@@ -26,7 +55,7 @@ export default function BeneficiarySchemes() {
 
     // Otherwise, only show active schemes
     if (s.status !== 'active') return false;
-    
+
     if (filter !== 'all' && s.category !== filter) return false;
     if (!profile) return true;
 
@@ -44,12 +73,12 @@ export default function BeneficiarySchemes() {
       } else {
         const userStage = profile.userType === 'mother' ? 'postpartum' : profile.pregnancyStage;
         if (userStage && !audience.pregnancyStage.includes(userStage)) {
-           const schemeHasTrimesters = audience.pregnancyStage.some(st => st.includes('trimester'));
-           if (profile.userType === 'pregnant' && schemeHasTrimesters) {
-             // Keep it
-           } else {
-             return false;
-           }
+          const schemeHasTrimesters = audience.pregnancyStage.some(st => st.includes('trimester'));
+          if (profile.userType === 'pregnant' && schemeHasTrimesters) {
+            // Keep it
+          } else {
+            return false;
+          }
         }
       }
     }
@@ -68,7 +97,7 @@ export default function BeneficiarySchemes() {
     if (scheme.targetAudience?.economicStatus?.length) {
       const userEco = userProfile.economicStatus || 'apl';
       const met = scheme.targetAudience.economicStatus.includes(userEco);
-      
+
       criteria.push({
         label: 'Economic Status',
         required: scheme.targetAudience.economicStatus.join(' / ').toUpperCase(),
@@ -81,9 +110,9 @@ export default function BeneficiarySchemes() {
     if (scheme.targetAudience?.pregnancyStage?.length) {
       let userStage = userProfile.pregnancyStage as string;
       if (userProfile.userType === 'mother') userStage = 'postpartum';
-      
+
       if (userProfile.userType !== 'girl') {
-        const met = userStage 
+        const met = userStage
           ? scheme.targetAudience.pregnancyStage.includes(userStage)
           : (userProfile.userType === 'pregnant' && scheme.targetAudience.pregnancyStage.some(s => s.includes('trimester')));
 
@@ -100,7 +129,7 @@ export default function BeneficiarySchemes() {
     if (scheme.targetAudience?.riskLevel?.length) {
       const userRisk = userProfile.riskLevel || 'low';
       const met = scheme.targetAudience.riskLevel.includes(userRisk);
-      
+
       criteria.push({
         label: 'Health Risk',
         required: scheme.targetAudience.riskLevel.map(s => fmt(s)).join(', '),
@@ -115,66 +144,63 @@ export default function BeneficiarySchemes() {
 
   const SchemeCard = ({ scheme, enrolled = false }: { scheme: Scheme, enrolled?: boolean }) => {
     const eligibility = profile ? checkEligibility(scheme, profile) : { isEligible: false, criteria: [] };
-    
+
     return (
-      <div 
+      <div
         onClick={() => !enrolled && setCheckScheme(scheme)}
-        className={`bg-white p-6 rounded-[2.5rem] shadow-sm border flex flex-col md:flex-row gap-6 group transition-all cursor-pointer relative overflow-hidden ${
-          enrolled ? 'border-green-200 bg-green-50/30' : 'border-slate-100 hover:shadow-md'
-        }`}
+        className={`bg-white p-6 rounded-[2.5rem] shadow-sm border flex flex-col md:flex-row gap-6 group transition-all cursor-pointer relative overflow-hidden ${enrolled ? 'border-green-200 bg-green-50/30' : 'border-slate-100 hover:shadow-md'
+          }`}
       >
         <div className="w-full md:w-32 h-32 rounded-[2rem] bg-slate-50 shrink-0 overflow-hidden relative">
-           <img src={scheme.heroImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-           {enrolled && (
-             <div className="absolute inset-0 bg-green-900/20 flex items-center justify-center">
-               <div className="bg-white rounded-full p-2">
-                 <Check className="w-6 h-6 text-green-600" />
-               </div>
-             </div>
-           )}
+          <img src={scheme.heroImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          {enrolled && (
+            <div className="absolute inset-0 bg-green-900/20 flex items-center justify-center">
+              <div className="bg-white rounded-full p-2">
+                <Check className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          )}
         </div>
-  
+
         <div className="flex-1 flex flex-col justify-center">
           <div className="flex justify-between items-start mb-2">
-             <div>
-               <div className="flex gap-2 mb-2">
-                 <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${
-                   scheme.category === 'financial' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                 }`}>
-                   {scheme.category}
-                 </span>
-                 {enrolled ? (
-                   <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-green-600 text-white flex items-center gap-1">
-                     <CheckCircle2 size={10} /> Enrolled
-                   </span>
-                 ) : (
-                   profile && (
-                     <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full flex items-center gap-1 ${
-                       eligibility.isEligible ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
-                     }`}>
-                       {eligibility.isEligible ? <CheckCircle2 size={10} /> : <Info size={10} />}
-                       {eligibility.isEligible ? t('schemes.eligible') : t('schemes.check_criteria')}
-                     </span>
-                   )
-                 )}
-               </div>
-               <h3 className="text-xl font-bold text-slate-900 leading-tight">{scheme.title}</h3>
-             </div>
-             {!enrolled && (
-               <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
-                 <ArrowUpRight size={20} />
-               </div>
-             )}
+            <div>
+              <div className="flex gap-2 mb-2">
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${scheme.category === 'financial' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                  }`}>
+                  {scheme.category}
+                </span>
+                {enrolled ? (
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-green-600 text-white flex items-center gap-1">
+                    <CheckCircle2 size={10} /> Enrolled
+                  </span>
+                ) : (
+                  profile && (
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full flex items-center gap-1 ${eligibility.isEligible ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                      {eligibility.isEligible ? <CheckCircle2 size={10} /> : <Info size={10} />}
+                      {eligibility.isEligible ? t('schemes.eligible') : t('schemes.check_criteria')}
+                    </span>
+                  )
+                )}
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 leading-tight">{scheme.title}</h3>
+            </div>
+            {!enrolled && (
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
+                <ArrowUpRight size={20} />
+              </div>
+            )}
           </div>
           <p className="text-slate-500 font-medium text-sm line-clamp-2 mb-4">
             {scheme.description}
           </p>
-          
+
           <div className="flex flex-wrap gap-2">
             {(scheme.benefits || []).slice(0, 2).map((benefit, i) => (
-               <div key={i} className="flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-full">
-                 <CheckCircle2 size={12} className="text-teal-500" /> {benefit}
-               </div>
+              <div key={i} className="flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-full">
+                <CheckCircle2 size={12} className="text-teal-500" /> {benefit}
+              </div>
             ))}
           </div>
         </div>
@@ -197,7 +223,7 @@ export default function BeneficiarySchemes() {
       </div>
 
       <div className="p-6 max-w-3xl mx-auto space-y-8">
-        
+
         {/* Hero Section */}
         <div className="bg-[#E0E7FF] p-8 rounded-[2.5rem] relative overflow-hidden shadow-sm">
           <div className="relative z-10 max-w-xs">
@@ -218,11 +244,10 @@ export default function BeneficiarySchemes() {
             <button
               key={t}
               onClick={() => setFilter(t as any)}
-              className={`px-6 py-3 rounded-full text-sm font-bold capitalize transition-all whitespace-nowrap ${
-                filter === t 
-                  ? 'bg-black text-white shadow-md' 
-                  : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'
-              }`}
+              className={`px-6 py-3 rounded-full text-sm font-bold capitalize transition-all whitespace-nowrap ${filter === t
+                ? 'bg-black text-white shadow-md'
+                : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'
+                }`}
             >
               {t}
             </button>
@@ -276,7 +301,7 @@ export default function BeneficiarySchemes() {
                   <h2 className="text-xl font-bold">{checkingScheme.title}</h2>
                   <p className="text-slate-400 text-sm mt-1">Eligibility Check</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setCheckScheme(null)}
                   className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
                 >
@@ -289,9 +314,8 @@ export default function BeneficiarySchemes() {
                   const { isEligible, criteria } = checkEligibility(checkingScheme, profile);
                   return (
                     <>
-                      <div className={`p-4 rounded-xl flex items-center gap-3 mb-6 ${
-                        isEligible ? 'bg-green-50 border border-green-100' : 'bg-red-50 border border-red-100'
-                      }`}>
+                      <div className={`p-4 rounded-xl flex items-center gap-3 mb-6 ${isEligible ? 'bg-green-50 border border-green-100' : 'bg-red-50 border border-red-100'
+                        }`}>
                         {isEligible ? (
                           <CheckCircle2 className="w-8 h-8 text-green-600" />
                         ) : (
@@ -308,7 +332,7 @@ export default function BeneficiarySchemes() {
                       </div>
 
                       <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">{t('schemes.criteria_checklist')}</h3>
-                      
+
                       <div className="space-y-3">
                         {criteria.map((c, idx) => (
                           <div key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
@@ -332,11 +356,37 @@ export default function BeneficiarySchemes() {
 
                       <div className="mt-8">
                         {isEligible ? (
-                          <button className="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-700 shadow-lg shadow-green-200">
-                            {t('schemes.apply')}
+                          <button
+                            onClick={async () => {
+                              if (!profile || !checkingScheme) return;
+
+                              setEnrolling(true);
+                              try {
+                                await enrollmentService.enroll(checkingScheme.id, profile.id);
+                                addToast('योजना में सफलतापूर्वक नामांकित! (Successfully enrolled!)', 'success');
+                                await fetchInitialData(true); // Refresh data
+                                setCheckScheme(null);
+                              } catch (error: any) {
+                                console.error('Enrollment failed:', error);
+                                addToast(error.response?.data?.detail || 'Enrollment failed. Please try again.', 'error');
+                              } finally {
+                                setEnrolling(false);
+                              }
+                            }}
+                            disabled={enrolling}
+                            className="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-700 shadow-lg shadow-green-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                          >
+                            {enrolling ? (
+                              <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                Enrolling...
+                              </>
+                            ) : (
+                              t('schemes.apply')
+                            )}
                           </button>
                         ) : (
-                          <button 
+                          <button
                             onClick={() => navigate('/beneficiary/card')}
                             className="w-full py-4 bg-slate-100 text-slate-600 rounded-xl font-bold text-lg hover:bg-slate-200"
                           >
@@ -355,3 +405,4 @@ export default function BeneficiarySchemes() {
     </div>
   );
 }
+

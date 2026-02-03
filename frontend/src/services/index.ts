@@ -9,8 +9,19 @@ export { default as childService } from './childService';
 export { default as schemeService } from './schemeService';
 export { default as enrollmentService } from './enrollmentService';
 export { default as visitService } from './visitService';
-export { runVoiceAgent, transcribeAudio, getChatResponse, getHealthAdvice, extractVisitData } from './voiceAgent';
+export {
+    transcribeAudio,
+    getChatResponse,
+    getHealthGuidance,
+    processVoiceInput,
+    processAshaVoice,
+    extractVisitData,
+    getChatHistory,
+    getEmergencyCount,
+    default as voiceAgent
+} from './voiceAgent';
 export { default as aiService, simulateVoiceToText, simulateHindiResponse, simulateExtractMedicalData } from './ai';
+
 
 // Re-export types for convenience
 export type { LoginCredentials, RegisterData, AuthTokens } from '../lib/auth';
@@ -33,5 +44,7 @@ export type {
 export type {
     TranscriptionResult,
     ChatResponse,
-    VoiceAgentResult
+    VoiceAgentResult,
+    ProcessVoiceResult
 } from './voiceAgent';
+

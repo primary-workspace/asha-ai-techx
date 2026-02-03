@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     # Gemini API
     GEMINI_API_URL: str = "http://localhost:8001/generate"
     
+    # Whisper STT Settings
+    WHISPER_MODEL: str = "base"  # Options: tiny, base, small, medium, large
+    
     # App Settings
     DEBUG: bool = True
     SQL_ECHO: bool = False  # Set to True to see SQL queries

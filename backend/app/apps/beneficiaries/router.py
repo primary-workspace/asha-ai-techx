@@ -34,13 +34,16 @@ async def list_beneficiaries(
     if current_user.role == 'beneficiary':
         query = query.where(BeneficiaryProfile.user_id == current_user.id)
     elif current_user.role == 'asha_worker':
-        # ASHA workers see their linked beneficiaries
+        # To ensure ASHA can see all potential patients (unlinked or linked), we show all beneficiaries.
+                # ASHA workers see their linked beneficiaries
         query = query.where(
             or_(
                 BeneficiaryProfile.linked_asha_id == current_user.id,
                 BeneficiaryProfile.user_id == current_user.id
             )
         )
+        # In a production app with multiple ASHAs, we would filter by location/catchment area here.
+        # pass
     # Partners and admins see all
     
     # Apply filters

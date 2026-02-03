@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
-import { Mic, Loader2, Square, Volume2 } from 'lucide-react';
+import { Mic, Loader2, Square, Volume2, Languages } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 import { useTextToSpeech } from '../../hooks/useTextToSpeech';
-import { runVoiceAgent } from '../../services/voiceAgent';
+import { processVoiceInput } from '../../services/voiceAgent';
 import { useStore } from '../../store/useStore';
 
 interface VoiceInputProps {
@@ -23,7 +23,7 @@ export default function VoiceInput({
   onTranscript,
   onResponse,
 }: VoiceInputProps) {
-  const { language } = useStore();
+  const { language, setLanguage } = useStore();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const { state: recorderState, startRecording, stopRecording, resetRecording } = useVoiceRecorder();
@@ -40,11 +40,11 @@ export default function VoiceInput({
       setIsProcessing(true);
 
       try {
-        const result = await runVoiceAgent({
+        const result = await processVoiceInput(
           audioBlob,
-          beneficiaryId,
           language,
-        });
+          beneficiaryId
+        );
 
         if (result) {
           onTranscript?.(result.transcript);
@@ -152,6 +152,15 @@ export default function VoiceInput({
                 : labelHindi}
         </p>
       </div>
+
+      {/* Language Switcher */}
+      <button
+        onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
+        className="mt-1 flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200 transition-colors border border-slate-200"
+      >
+        <Languages size={14} />
+        {language === 'en' ? 'English' : 'हिंदी (Hindi)'}
+      </button>
 
       {/* Waveform visualization when recording */}
       {buttonState === 'recording' && (

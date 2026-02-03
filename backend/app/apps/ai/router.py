@@ -85,63 +85,51 @@ async def extract_visit_data(
     request: PromptRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Extract structured visit data from ASHA worker's voice transcription"""
+    """
+    Extract structured visit data from ASHA worker's voice transcription.
+    
+    IMPORTANT: This is a healthcare application. The returned data MUST be
+    verified by the ASHA worker before saving to the database.
+    """
     try:
-        result = await gemini_service.generate(
-            f"""Extract structured data from this ASHA worker's visit notes and return as JSON:
-
-Visit Notes: "{request.text}"
-
-Return JSON with these fields (use null for missing data):
-{{
-  "patient_name": string or null,
-  "visit_type": "routine_checkup" | "emergency" | "follow_up" | "vaccination" | null,
-  "vitals": {{
-    "blood_pressure_systolic": number or null,
-    "blood_pressure_diastolic": number or null,
-    "weight_kg": number or null,
-    "temperature_celsius": number or null
-  }},
-  "symptoms": [list of symptoms],
-  "symptom_severity": "mild" | "moderate" | "severe" | null,
-  "services_provided": [list of services],
-  "medicines_distributed": [list of medicines],
-  "counseling_topics": [list of topics discussed],
-  "observations": string or null,
-  "concerns_noted": string or null,
-  "follow_up_required": boolean,
-  "next_visit_date": "YYYY-MM-DD" or null,
-  "referral_needed": boolean,
-  "referral_reason": string or null
-}}
-
-Only return the JSON, no other text."""
-        )
+        # Use the improved extraction method from the service
+        result = await gemini_service.extract_visit_data(request.text)
         
-        # Try to parse JSON from response
-        import json
-        import re
+        if not result:
+            # Return empty structure if extraction failed
+            return {
+                "patient_name": None,
+                "visit_type": None,
+                "vitals": {},
+                "symptoms": [],
+                "services_provided": [],
+                "observations": request.text,
+                "follow_up_required": False,
+                "referral_needed": False,
+                "requires_verification": True,
+                "extraction_note": "Automatic extraction failed. Please enter data manually."
+            }
         
-        # Extract JSON from response
-        json_match = re.search(r'\{[\s\S]*\}', result.response)
-        if json_match:
-            try:
-                data = json.loads(json_match.group())
-                return data
-            except json.JSONDecodeError:
-                pass
+        # Add verification flag - CRITICAL for healthcare safety
+        result["requires_verification"] = True
+        result["extraction_note"] = "Please verify all extracted data before saving."
         
-        return {
-            "observations": result.response,
-            "follow_up_required": False,
-            "referral_needed": False,
-        }
+        return result
+        
     except Exception as e:
+        # Return safe fallback with the original text
         return {
-            "error": str(e),
+            "patient_name": None,
+            "visit_type": None,
+            "vitals": {},
+            "symptoms": [],
+            "services_provided": [],
             "observations": request.text,
             "follow_up_required": False,
             "referral_needed": False,
+            "requires_verification": True,
+            "extraction_note": f"Error during extraction: {str(e)}. Please enter data manually.",
+            "error": str(e)
         }
 
 

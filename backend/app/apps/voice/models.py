@@ -12,9 +12,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
 
-class AIChatHistory(Base):
+class ChatLog(Base):
     """
-    AI Chat History - records all voice/text interactions with AI
+    Chat Log - records all voice/text interactions with AI
+    Also known as AIChatHistory for backwards compatibility
     """
     __tablename__ = "ai_chat_history"
     
@@ -26,9 +27,8 @@ class AIChatHistory(Base):
         ForeignKey("users.id", ondelete="SET NULL"), 
         nullable=True
     )
-    beneficiary_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), 
-        ForeignKey("beneficiary_profiles.id", ondelete="SET NULL"), 
+    beneficiary_id: Mapped[Optional[str]] = mapped_column(
+        String(255),  # Allow string IDs as well as UUIDs
         nullable=True
     )
     
@@ -50,4 +50,8 @@ class AIChatHistory(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     
     def __repr__(self):
-        return f"<AIChatHistory {self.id}>"
+        return f"<ChatLog {self.id}>"
+
+
+# Backwards compatibility alias
+AIChatHistory = ChatLog

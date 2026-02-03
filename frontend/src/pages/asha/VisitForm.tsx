@@ -1,241 +1,181 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Mic, Save, ArrowLeft, Loader2, AlertTriangle, Plus, X, User } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
-import { simulateVoiceToText, simulateExtractMedicalData } from '../../services/ai';
+import { ArrowLeft, User, Search, RefreshCw } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { assessRisk } from '../../utils/riskAssessment';
 import { useTranslation } from '../../hooks/useTranslation';
+import AshaVoiceRecorder from '../../components/AshaVoiceRecorder';
+import { RoleLayout } from '../../components/layout/RoleLayout';
+import { useToast } from '../../store/useToast';
 
 export default function VisitForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preSelectedId = searchParams.get('patientId');
   const { t } = useTranslation();
-  const { addHealthLog, beneficiaries } = useStore();
-  
-  const [step, setStep] = useState<'record' | 'review'>('record');
-  const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [transcription, setTranscription] = useState('');
-  const [extractedData, setExtractedData] = useState<any>(null);
-  const [riskAnalysis, setRiskAnalysis] = useState<any>(null);
-  const [newSymptom, setNewSymptom] = useState('');
-  
+  const { beneficiaries, addHealthLog, fetchInitialData } = useStore();
+  const { addToast } = useToast();
+
   const [selectedPatientId, setSelectedPatientId] = useState(preSelectedId || '');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const handleRecord = async () => {
-    setIsRecording(true);
-    setTimeout(async () => {
-      setIsRecording(false);
-      setIsProcessing(true);
-      
-      const text = await simulateVoiceToText();
-      setTranscription(text);
-      
-      const data = await simulateExtractMedicalData(text);
-      setExtractedData(data);
-      
-      const risk = assessRisk(data.bpSystolic, data.bpDiastolic, data.symptoms, 'trimester_3');
-      setRiskAnalysis(risk);
-      
-      setIsProcessing(false);
-      setStep('review');
-    }, 2000);
-  };
+  // Ensure data is loaded
+  useEffect(() => {
+    if (beneficiaries.length === 0) {
+      fetchInitialData();
+    }
+  }, [beneficiaries.length, fetchInitialData]);
 
-  const handleSave = () => {
-    if (extractedData && selectedPatientId) {
-      addHealthLog({
+  // Update selection if URL param changes
+  useEffect(() => {
+    if (preSelectedId) {
+      setSelectedPatientId(preSelectedId);
+    }
+  }, [preSelectedId]);
+
+  const selectedPatient = beneficiaries.find(b => b.id === selectedPatientId);
+
+  // Filter for search
+  const filteredBeneficiaries = beneficiaries.filter(b =>
+    b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (b.abhaId && b.abhaId.includes(searchTerm))
+  );
+
+  const handleSave = async (data: any, transcript: string) => {
+    if (!selectedPatientId) {
+      addToast('Please select a patient first', 'error');
+      return;
+    }
+
+    try {
+      await addHealthLog({
         beneficiaryId: selectedPatientId,
         date: new Date().toISOString(),
-        ...extractedData
+        bpSystolic: data.vitals?.blood_pressure?.systolic || 0,
+        bpDiastolic: data.vitals?.blood_pressure?.diastolic || 0,
+        symptoms: data.symptoms || [],
+        mood: data.mood || 'Neutral',
+        isEmergency: data.follow_up_required || false,
       });
+
+      // We don't save transcript directly in HealthLog interface currently, 
+      // but maybe we should store notes.
+      // Assuming HealthLog might be extended or we just save critical data.
+      // DailyLog uses 'notes', HealthLog doesn't have 'notes' in interface (checked in Step 1250).
+      // But typically we should save extraction.
+
+      addToast('Visit recorded successfully', 'success');
       navigate('/asha');
+    } catch (e) {
+      console.error("Failed to save log", e);
+      addToast('Failed to save visit record', 'error');
     }
   };
 
-  const addSymptom = () => {
-    if (newSymptom.trim()) {
-      setExtractedData({
-        ...extractedData,
-        symptoms: [...extractedData.symptoms, newSymptom.trim()]
-      });
-      setNewSymptom('');
-    }
-  };
-
-  const removeSymptom = (symptom: string) => {
-    setExtractedData({
-      ...extractedData,
-      symptoms: extractedData.symptoms.filter((s: string) => s !== symptom)
-    });
+  const clearSelection = () => {
+    setSelectedPatientId('');
+    setSearchTerm('');
+    // Update URL to remove patientId if present
+    navigate('/asha/visit', { replace: true });
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <div className="bg-white p-4 border-b flex items-center gap-3 sticky top-0 z-10">
+    <RoleLayout role="asha_worker">
+      <div className="bg-white p-4 border-b flex items-center gap-3 sticky top-0 z-10 shadow-sm">
         <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full">
           <ArrowLeft className="w-6 h-6 text-slate-600" />
         </button>
-        <h1 className="font-bold text-lg">{t('asha.new_visit')}</h1>
+        <h1 className="font-bold text-lg text-slate-800">
+          {selectedPatientId ? `Visit: ${selectedPatient?.name}` : t('asha.new_visit')}
+        </h1>
       </div>
 
-      <div className="flex-1 p-6 flex flex-col items-center justify-center">
-        {step === 'record' ? (
-          <div className="text-center w-full max-w-sm">
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">{t('asha.voice_entry')}</h2>
-              <p className="text-slate-500">{t('asha.voice_inst')}</p>
-              <p className="text-xs text-slate-400 mt-2 bg-slate-100 inline-block px-3 py-1 rounded-full">
-                {t('asha.try_saying')}
-              </p>
+      <div className="p-4 max-w-2xl mx-auto pb-24">
+        {!selectedPatientId ? (
+          <div className="space-y-6">
+            <div className="text-center py-6">
+              <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <User className="text-teal-600 w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-800">Select Patient</h2>
+              <p className="text-slate-500 text-sm">Choose a beneficiary to record visit details</p>
             </div>
 
-            <button
-              onClick={handleRecord}
-              disabled={isRecording || isProcessing}
-              className={`w-32 h-32 rounded-full flex items-center justify-center mx-auto mb-8 transition-all ${
-                isRecording ? 'bg-red-500 animate-pulse shadow-red-200' : 'bg-teal-600 hover:bg-teal-700 shadow-teal-200'
-              } shadow-xl text-white`}
-            >
-              {isProcessing ? (
-                <Loader2 className="w-12 h-12 animate-spin" />
-              ) : (
-                <Mic className="w-12 h-12" />
-              )}
-            </button>
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-3.5 text-slate-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search by name or ABHA ID..."
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
 
-            {isRecording && <p className="text-red-500 font-medium animate-pulse">{t('asha.listening')}</p>}
-            {isProcessing && <p className="text-teal-600 font-medium">{t('asha.processing')}</p>}
+              <div className="space-y-2">
+                {filteredBeneficiaries.map(b => (
+                  <div
+                    key={b.id}
+                    onClick={() => setSelectedPatientId(b.id)}
+                    className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-teal-500 hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${b.riskLevel === 'high' ? 'bg-red-100 text-red-600' :
+                          b.riskLevel === 'medium' ? 'bg-orange-100 text-orange-600' :
+                            'bg-teal-100 text-teal-600'
+                        }`}>
+                        {b.name.charAt(0)}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-800 group-hover:text-teal-700">{b.name}</h3>
+                        <p className="text-xs text-slate-500 capitalize">{b.userType} • {b.age}y</p>
+                      </div>
+                    </div>
+                    <div className="px-3 py-1 bg-slate-100 rounded-full text-xs text-slate-600 group-hover:bg-teal-50 group-hover:text-teal-700">
+                      Select
+                    </div>
+                  </div>
+                ))}
+
+                {filteredBeneficiaries.length === 0 && (
+                  <div className="text-center py-8 text-slate-400">
+                    No patients found
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="w-full max-w-md space-y-6 pb-20">
-            
-            {/* Patient Selector (If not pre-selected) */}
-            {!preSelectedId && (
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Select Patient</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
-                  <select 
-                    className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-lg border-none focus:ring-2 focus:ring-teal-500 outline-none font-bold text-slate-800"
-                    value={selectedPatientId}
-                    onChange={(e) => setSelectedPatientId(e.target.value)}
-                  >
-                    <option value="">-- Choose Patient --</option>
-                    {beneficiaries.map(b => (
-                      <option key={b.id} value={b.id}>{b.name} ({b.userType})</option>
-                    ))}
-                  </select>
+          <div className="space-y-6">
+            {/* Selected Patient Banner */}
+            <div className="bg-teal-50 border border-teal-100 p-4 rounded-xl flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-teal-700 font-bold border border-teal-100">
+                  {selectedPatient?.name.charAt(0)}
+                </div>
+                <div>
+                  <p className="text-xs text-teal-600 font-bold uppercase">Recording for</p>
+                  <h3 className="font-bold text-teal-900">{selectedPatient?.name}</h3>
                 </div>
               </div>
-            )}
-
-            {riskAnalysis?.riskLevel !== 'low' && (
-              <div className={`p-4 rounded-xl border-l-4 shadow-sm ${
-                riskAnalysis.riskLevel === 'high' ? 'bg-red-50 border-red-500' : 'bg-orange-50 border-orange-500'
-              }`}>
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className={`w-6 h-6 shrink-0 ${
-                    riskAnalysis.riskLevel === 'high' ? 'text-red-600' : 'text-orange-600'
-                  }`} />
-                  <div>
-                    <h3 className={`font-bold ${
-                      riskAnalysis.riskLevel === 'high' ? 'text-red-800' : 'text-orange-800'
-                    }`}>
-                      {t('asha.risk_detected')}
-                    </h3>
-                    <p className="text-sm text-slate-700 mt-1">{riskAnalysis.summary}</p>
-                    {riskAnalysis.referral && (
-                      <div className="mt-2 bg-white/50 p-2 rounded text-sm font-bold">
-                        {t('asha.recommendation')}: {riskAnalysis.referral}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-              <h3 className="text-xs font-bold text-slate-400 uppercase mb-2">{t('asha.auto_summary')}</h3>
-              <p className="text-slate-800 italic">"{transcription}"</p>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-teal-700 flex items-center gap-2">
-                  {t('asha.vitals')}
-                </h3>
-                <span className="text-xs text-slate-400 font-bold uppercase">Editable</span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-all">
-                  <span className="text-xs text-slate-500 font-bold uppercase">BP (Systolic)</span>
-                  <input 
-                    type="number" 
-                    className={`w-full bg-transparent font-bold text-2xl outline-none ${extractedData.bpSystolic > 140 ? 'text-red-600' : 'text-slate-900'}`}
-                    value={extractedData.bpSystolic}
-                    onChange={(e) => setExtractedData({...extractedData, bpSystolic: Number(e.target.value)})}
-                  />
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-all">
-                  <span className="text-xs text-slate-500 font-bold uppercase">BP (Diastolic)</span>
-                  <input 
-                    type="number" 
-                    className={`w-full bg-transparent font-bold text-2xl outline-none ${extractedData.bpDiastolic > 90 ? 'text-red-600' : 'text-slate-900'}`}
-                    value={extractedData.bpDiastolic}
-                    onChange={(e) => setExtractedData({...extractedData, bpDiastolic: Number(e.target.value)})}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <span className="text-xs text-slate-500 font-bold uppercase">{t('tracker.symptoms')}</span>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {extractedData.symptoms.map((s: string) => (
-                    <span key={s} className="px-3 py-1.5 bg-rose-50 text-rose-700 rounded-lg text-sm font-medium flex items-center gap-2 border border-rose-100">
-                      {s}
-                      <button onClick={() => removeSymptom(s)} className="hover:bg-rose-200 rounded-full p-0.5">
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                  <div className="flex items-center gap-2 w-full mt-2">
-                    <input 
-                      type="text" 
-                      placeholder="Add symptom..." 
-                      className="flex-1 p-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-teal-500"
-                      value={newSymptom}
-                      onChange={(e) => setNewSymptom(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && addSymptom()}
-                    />
-                    <button 
-                      onClick={addSymptom}
-                      className="p-2 bg-teal-50 text-teal-600 rounded-lg hover:bg-teal-100"
-                    >
-                      <Plus size={18} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setStep('record')}>{t('common.retry')}</Button>
-              <Button 
-                className="flex-1 bg-teal-600 hover:bg-teal-700" 
-                onClick={handleSave}
-                disabled={!selectedPatientId}
+              <button
+                onClick={clearSelection}
+                className="p-2 bg-white text-slate-500 rounded-lg hover:text-red-500 hover:bg-red-50 transition-colors"
               >
-                <Save className="w-4 h-4 mr-2" />
-                {t('asha.confirm_save')}
-              </Button>
+                <RefreshCw size={18} />
+              </button>
             </div>
+
+            {/* The Voice Recorder Component */}
+            <AshaVoiceRecorder
+              patientName={selectedPatient?.name}
+              patientId={selectedPatientId}
+              onSave={handleSave}
+              onCancel={() => navigate(-1)}
+            />
           </div>
         )}
       </div>
-    </div>
+    </RoleLayout>
   );
 }

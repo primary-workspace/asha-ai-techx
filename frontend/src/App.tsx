@@ -26,6 +26,7 @@ import QRScanner from './pages/asha/QRScanner';
 import PatientProfile from './pages/asha/PatientProfile';
 import PatientList from './pages/asha/PatientList';
 import AshaAlerts from './pages/asha/Alerts';
+import AshaSchemeManagement from './pages/asha/SchemeManagement';
 
 // Partner Pages
 import PartnerDashboard from './pages/partner/Dashboard';
@@ -114,6 +115,7 @@ function App() {
           <Route path="/asha/scan" element={<QRScanner />} />
           <Route path="/asha/patients" element={<PatientList />} />
           <Route path="/asha/alerts" element={<AshaAlerts />} />
+          <Route path="/asha/schemes" element={<AshaSchemeManagement />} />
           <Route path="/asha/patient/:id" element={<PatientProfile />} />
 
           {/* Partner Routes */}

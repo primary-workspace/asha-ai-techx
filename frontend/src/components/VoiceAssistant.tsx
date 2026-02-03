@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, X, Volume2, Send, Square, Loader2, AlertTriangle } from 'lucide-react';
+import { Mic, X, Volume2, Send, Square, Loader2, AlertTriangle, Languages } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
 import { useStore } from '../store/useStore';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
-import { runVoiceAgent, getHealthAdvice } from '../services/voiceAgent';
+import { processVoiceInput, getHealthGuidance } from '../services/voiceAgent';
 
 interface VoiceAssistantProps {
     customTrigger?: (onClick: () => void, isActive: boolean) => React.ReactNode;
@@ -27,7 +27,7 @@ export default function VoiceAssistant({
     mode = 'auto',
     beneficiaryId
 }: VoiceAssistantProps) {
-    const { currentUser, language } = useStore();
+    const { currentUser, language, setLanguage } = useStore();
 
     const [isOpen, setIsOpen] = useState(false);
     const [assistantMode, setAssistantMode] = useState<AssistantMode>('idle');
@@ -102,13 +102,13 @@ export default function VoiceAssistant({
 
         try {
             // Process audio through voice agent
-            const result = await runVoiceAgent({
+            const result = await processVoiceInput(
                 audioBlob,
-                beneficiaryId,
                 language,
-            });
+                beneficiaryId
+            );
 
-            if (result) {
+            if (result && result.transcript) {
                 // Add user message
                 setMessages(prev => [...prev, {
                     role: 'user',
@@ -171,7 +171,7 @@ export default function VoiceAssistant({
         stopSpeaking();
 
         try {
-            const response = await getHealthAdvice(userMessage, language);
+            const response = await getHealthGuidance(userMessage, language);
 
             // Add AI response
             setMessages(prev => [...prev, {
@@ -271,12 +271,21 @@ export default function VoiceAssistant({
                                     </p>
                                 </div>
                             </div>
-                            <button
-                                onClick={handleClose}
-                                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            >
-                                <X size={20} className="text-slate-400" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setLanguage(language === 'en' ? 'hi' : 'en')}
+                                    className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                    title={language === 'en' ? "Switch to Hindi" : "English"}
+                                >
+                                    <Languages size={18} />
+                                </button>
+                                <button
+                                    onClick={handleClose}
+                                    className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                >
+                                    <X size={20} className="text-slate-400" />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Messages */}

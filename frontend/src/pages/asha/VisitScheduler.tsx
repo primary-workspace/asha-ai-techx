@@ -9,26 +9,23 @@ import {
     AlertCircle,
     CheckCircle2,
     XCircle,
-    Filter,
     User,
     Baby,
     UserPlus,
-    Flower2,
-    ArrowLeft
+    Flower2
 } from 'lucide-react';
-import { format, isToday, isPast, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RoleLayout } from '../../components/layout/RoleLayout';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { Button } from '../../components/ui/Button';
 import { useStore } from '../../store/useStore';
-import { visitService, Visit, VisitStatus, VisitPriority } from '../../services';
-import { useTranslation } from '../../hooks/useTranslation';
+import { visitService, Visit, VisitStatus, VisitPriority, beneficiaryService } from '../../services';
+import { BeneficiaryProfile } from '../../types';
 
 export default function VisitScheduler() {
     const navigate = useNavigate();
-    const { t } = useTranslation();
-    const { beneficiaries } = useStore();
+    const { beneficiaries: storeBeneficiaries, fetchInitialData } = useStore();
 
     const [visits, setVisits] = useState<Visit[]>([]);
     const [loading, setLoading] = useState(true);
@@ -36,6 +33,8 @@ export default function VisitScheduler() {
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [todayCount, setTodayCount] = useState(0);
     const [overdueCount, setOverdueCount] = useState(0);
+    const [localBeneficiaries, setLocalBeneficiaries] = useState<BeneficiaryProfile[]>([]);
+    const [loadingBeneficiaries, setLoadingBeneficiaries] = useState(false);
 
     // Form state for new visit
     const [newVisit, setNewVisit] = useState({
@@ -46,6 +45,36 @@ export default function VisitScheduler() {
         purpose: '',
         priority: 'normal' as VisitPriority
     });
+
+    // Fetch beneficiaries when modal opens or when store is empty
+    useEffect(() => {
+        const loadBeneficiaries = async () => {
+            // If we have store data, use it first
+            if (storeBeneficiaries.length > 0) {
+                setLocalBeneficiaries(storeBeneficiaries);
+            }
+
+            // If store is empty OR we are opening the modal, ensure we have fresh data
+            if (storeBeneficiaries.length === 0 || showScheduleModal) {
+                setLoadingBeneficiaries(true);
+                try {
+                    const data = await beneficiaryService.list();
+                    setLocalBeneficiaries(data);
+
+                    // Update store if empty
+                    if (storeBeneficiaries.length === 0) {
+                        fetchInitialData(true);
+                    }
+                } catch (error) {
+                    console.error('Error loading beneficiaries:', error);
+                } finally {
+                    setLoadingBeneficiaries(false);
+                }
+            }
+        };
+
+        loadBeneficiaries();
+    }, [storeBeneficiaries.length, showScheduleModal, fetchInitialData]);
 
     useEffect(() => {
         loadVisits();
@@ -188,8 +217,8 @@ export default function VisitScheduler() {
                             key={f}
                             onClick={() => setFilter(f)}
                             className={`px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all ${filter === f
-                                    ? 'bg-slate-800 text-white'
-                                    : 'bg-white text-slate-600 border border-slate-200'
+                                ? 'bg-slate-800 text-white'
+                                : 'bg-white text-slate-600 border border-slate-200'
                                 }`}
                         >
                             {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -227,7 +256,7 @@ export default function VisitScheduler() {
                                                 <div>
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${visit.beneficiaryRiskLevel === 'high' ? 'bg-red-500' :
-                                                                visit.beneficiaryRiskLevel === 'medium' ? 'bg-orange-500' : 'bg-teal-500'
+                                                            visit.beneficiaryRiskLevel === 'medium' ? 'bg-orange-500' : 'bg-teal-500'
                                                             }`}>
                                                             {getPatientIcon(visit.beneficiaryUserType)}
                                                         </div>
@@ -351,14 +380,26 @@ export default function VisitScheduler() {
                                         className="w-full p-4 bg-slate-50 rounded-xl border-none font-medium text-slate-800"
                                         value={newVisit.beneficiary_id}
                                         onChange={(e) => setNewVisit({ ...newVisit, beneficiary_id: e.target.value })}
+                                        disabled={loadingBeneficiaries}
                                     >
-                                        <option value="">-- Choose Patient --</option>
-                                        {beneficiaries.map(b => (
+                                        <option value="">
+                                            {loadingBeneficiaries
+                                                ? 'Loading patients...'
+                                                : localBeneficiaries.length === 0
+                                                    ? 'No patients found'
+                                                    : '-- Choose Patient --'}
+                                        </option>
+                                        {localBeneficiaries.map(b => (
                                             <option key={b.id} value={b.id}>
                                                 {b.name} ({b.userType}) {b.riskLevel === 'high' ? '⚠️' : ''}
                                             </option>
                                         ))}
                                     </select>
+                                    {localBeneficiaries.length === 0 && !loadingBeneficiaries && (
+                                        <p className="text-xs text-amber-600 mt-1">
+                                            No patients registered. Add beneficiaries first.
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Date & Time */}
@@ -414,8 +455,8 @@ export default function VisitScheduler() {
                                                 key={p}
                                                 onClick={() => setNewVisit({ ...newVisit, priority: p })}
                                                 className={`flex-1 py-3 rounded-xl font-bold capitalize transition-all ${newVisit.priority === p
-                                                        ? `${getPriorityColor(p)} text-white`
-                                                        : 'bg-slate-100 text-slate-600'
+                                                    ? `${getPriorityColor(p)} text-white`
+                                                    : 'bg-slate-100 text-slate-600'
                                                     }`}
                                             >
                                                 {p}

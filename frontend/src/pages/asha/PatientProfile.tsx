@@ -16,18 +16,18 @@ export default function PatientProfile() {
   const { t } = useTranslation();
   const { beneficiaries, healthLogs, schemes, enrollments, enrollBeneficiary, currentUser, updateBeneficiaryProfile, children, addChild, updateChild, deleteBeneficiary } = useStore();
   const { addToast } = useToast();
-  
-  const [activeTab, setActiveTab] = useState<'history' | 'schemes' | 'medical' | 'family'>('history');
+
+  const [activeTab, setActiveTab] = useState<'history' | 'schemes' | 'medical' | 'family' | 'pregnancy'>('history');
   const [editMode, setEditMode] = useState<'none' | 'basic' | 'medical' | 'child'>('none');
   const [formData, setFormData] = useState<Partial<BeneficiaryProfile>>({});
   const [isAddingChild, setIsAddingChild] = useState(false);
   const [editingChildId, setEditingChildId] = useState<string | null>(null);
   const [childFormData, setChildFormData] = useState<Partial<Child>>({ gender: 'male' });
   const [showCard, setShowCard] = useState(false);
-  
+
   // Robust Patient Lookup: Matches Full ID OR Starts With ID (for short IDs)
   const patient = beneficiaries.find(b => b.id === id || (id && b.id.startsWith(id)));
-  
+
   // If we found a patient via partial ID, use the REAL ID for subsequent lookups
   const realId = patient?.id;
 
@@ -154,8 +154,8 @@ export default function PatientProfile() {
       onClick={() => setActiveTab(id)}
       className={clsx(
         "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all",
-        activeTab === id 
-          ? "bg-slate-900 text-white shadow-sm" 
+        activeTab === id
+          ? "bg-slate-900 text-white shadow-sm"
           : "bg-white text-slate-500 hover:bg-slate-50"
       )}
     >
@@ -165,7 +165,7 @@ export default function PatientProfile() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
-      
+
       {/* Header */}
       <div className="bg-white p-4 sticky top-0 z-10 border-b shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -175,7 +175,7 @@ export default function PatientProfile() {
           <h1 className="font-bold text-lg text-slate-800">{t('asha.patient_profile')}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={() => setShowCard(true)}
             className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors shadow-sm"
             title="View Digital Card"
@@ -183,7 +183,7 @@ export default function PatientProfile() {
             <QrCode size={16} />
             <span className="text-xs font-bold">Digital Card</span>
           </button>
-          <button 
+          <button
             onClick={handleDeleteUser}
             className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-colors"
             title="Delete Patient"
@@ -194,10 +194,10 @@ export default function PatientProfile() {
       </div>
 
       <main className="p-4 space-y-6">
-        
+
         {/* Basic Info Card */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 relative">
-          <button 
+          <button
             onClick={() => editMode === 'basic' ? handleSaveProfile() : startEditingBasic()}
             className="absolute top-4 right-4 p-2 bg-slate-100 rounded-full hover:bg-slate-200 text-slate-600"
           >
@@ -208,20 +208,20 @@ export default function PatientProfile() {
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase">Full Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="w-full p-2 border rounded-lg font-bold text-lg"
                   value={formData.name || ''}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-400 uppercase">User Type</label>
-                  <select 
+                  <select
                     className="w-full p-2 border rounded-lg text-sm"
                     value={formData.userType}
-                    onChange={e => setFormData({...formData, userType: e.target.value as any})}
+                    onChange={e => setFormData({ ...formData, userType: e.target.value as any })}
                   >
                     <option value="girl">Girl</option>
                     <option value="pregnant">Pregnant</option>
@@ -230,10 +230,10 @@ export default function PatientProfile() {
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-400 uppercase">Risk Level</label>
-                  <select 
+                  <select
                     className="w-full p-2 border rounded-lg text-sm font-bold"
                     value={formData.riskLevel}
-                    onChange={e => setFormData({...formData, riskLevel: e.target.value as any})}
+                    onChange={e => setFormData({ ...formData, riskLevel: e.target.value as any })}
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -243,10 +243,10 @@ export default function PatientProfile() {
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase">Pregnancy Stage</label>
-                <select 
+                <select
                   className="w-full p-2 border rounded-lg text-sm"
                   value={formData.pregnancyStage || ''}
-                  onChange={e => setFormData({...formData, pregnancyStage: e.target.value as any})}
+                  onChange={e => setFormData({ ...formData, pregnancyStage: e.target.value as any })}
                 >
                   <option value="">Select Stage</option>
                   <option value="trimester_1">Trimester 1 (1-12 Weeks)</option>
@@ -257,15 +257,15 @@ export default function PatientProfile() {
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase">Address</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="w-full p-2 border rounded-lg text-sm"
                   value={formData.address || ''}
-                  onChange={e => setFormData({...formData, address: e.target.value})}
+                  onChange={e => setFormData({ ...formData, address: e.target.value })}
                 />
               </div>
               <div>
-                <button 
+                <button
                   onClick={handleGPS}
                   className="flex items-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg w-full justify-center"
                 >
@@ -280,26 +280,25 @@ export default function PatientProfile() {
             </div>
           ) : (
             <div className="flex items-start gap-4">
-              <img 
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${patient.name}`} 
-                alt={patient.name} 
+              <img
+                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${patient.name}`}
+                alt={patient.name}
                 className="w-16 h-16 rounded-full bg-slate-100"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <h2 className="text-xl font-bold text-slate-900">{patient.name}</h2>
-                  <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                    patient.riskLevel === 'high' ? 'bg-red-100 text-red-700' : 
-                    patient.riskLevel === 'medium' ? 'bg-orange-100 text-orange-700' : 
-                    'bg-green-100 text-green-700'
-                  }`}>
+                  <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${patient.riskLevel === 'high' ? 'bg-red-100 text-red-700' :
+                    patient.riskLevel === 'medium' ? 'bg-orange-100 text-orange-700' :
+                      'bg-green-100 text-green-700'
+                    }`}>
                     {patient.riskLevel} Risk
                   </div>
                 </div>
                 <p className="text-slate-500 text-sm capitalize flex items-center gap-1">
-                  {patient.userType === 'mother' ? <Baby size={14} /> : 
-                   patient.userType === 'pregnant' ? <UserPlus size={14} /> : 
-                   <Flower2 size={14} />}
+                  {patient.userType === 'mother' ? <Baby size={14} /> :
+                    patient.userType === 'pregnant' ? <UserPlus size={14} /> :
+                      <Flower2 size={14} />}
                   {patient.userType} • {patient.pregnancyStage?.replace('_', ' ') || 'N/A'}
                 </p>
                 <div className="flex items-center gap-4 mt-3">
@@ -327,22 +326,29 @@ export default function PatientProfile() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs - show Family tab only for mothers */}
         <div className="bg-slate-200 p-1 rounded-xl flex gap-1">
           <TabButton id="history" label="History" icon={Activity} />
           <TabButton id="medical" label="Medical" icon={HeartPulse} />
-          <TabButton id="family" label="Family" icon={Baby} />
+          {/* Family/Children tab - only for mothers */}
+          {patient.userType === 'mother' && (
+            <TabButton id="family" label="Children" icon={Baby} />
+          )}
+          {/* Pregnancy tab - only for pregnant women */}
+          {patient.userType === 'pregnant' && (
+            <TabButton id="pregnancy" label="Pregnancy" icon={UserPlus} />
+          )}
           <TabButton id="schemes" label="Schemes" icon={CheckCircle2} />
         </div>
 
         {/* --- HISTORY TAB --- */}
         {activeTab === 'history' && (
           <section className="space-y-4">
-             <Button onClick={() => navigate(`/asha/visit?patientId=${realId}`)} className="w-full bg-teal-600 hover:bg-teal-700">
-               <Activity className="w-4 h-4 mr-2" />
-               {t('asha.new_visit')}
-             </Button>
-            
+            <Button onClick={() => navigate(`/asha/visit?patientId=${realId}`)} className="w-full bg-teal-600 hover:bg-teal-700">
+              <Activity className="w-4 h-4 mr-2" />
+              {t('asha.new_visit')}
+            </Button>
+
             {patientLogs.length === 0 ? (
               <div className="text-center p-8 bg-white rounded-xl border border-dashed border-slate-300">
                 <p className="text-slate-400 text-sm">No recent visits recorded.</p>
@@ -377,7 +383,7 @@ export default function PatientProfile() {
           <section className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-slate-800">Medical Details</h3>
-              <button 
+              <button
                 onClick={() => editMode === 'medical' ? handleSaveProfile() : startEditingMedical()}
                 className="text-sm font-bold text-teal-600 flex items-center gap-1"
               >
@@ -391,7 +397,7 @@ export default function PatientProfile() {
                 <div className="p-2 bg-slate-50 rounded-lg">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Weight</label>
                   {editMode === 'medical' ? (
-                    <input type="number" className="w-full bg-transparent font-bold" value={formData.weight || ''} onChange={e => setFormData({...formData, weight: Number(e.target.value)})} />
+                    <input type="number" className="w-full bg-transparent font-bold" value={formData.weight || ''} onChange={e => setFormData({ ...formData, weight: Number(e.target.value) })} />
                   ) : (
                     <p className="font-bold">{patient.weight || '-'} kg</p>
                   )}
@@ -399,7 +405,7 @@ export default function PatientProfile() {
                 <div className="p-2 bg-slate-50 rounded-lg">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Height</label>
                   {editMode === 'medical' ? (
-                    <input type="number" className="w-full bg-transparent font-bold" value={formData.height || ''} onChange={e => setFormData({...formData, height: Number(e.target.value)})} />
+                    <input type="number" className="w-full bg-transparent font-bold" value={formData.height || ''} onChange={e => setFormData({ ...formData, height: Number(e.target.value) })} />
                   ) : (
                     <p className="font-bold">{patient.height || '-'} cm</p>
                   )}
@@ -407,7 +413,7 @@ export default function PatientProfile() {
                 <div className="p-2 bg-slate-50 rounded-lg">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Blood</label>
                   {editMode === 'medical' ? (
-                    <input type="text" className="w-full bg-transparent font-bold" value={formData.bloodGroup || ''} onChange={e => setFormData({...formData, bloodGroup: e.target.value})} />
+                    <input type="text" className="w-full bg-transparent font-bold" value={formData.bloodGroup || ''} onChange={e => setFormData({ ...formData, bloodGroup: e.target.value })} />
                   ) : (
                     <p className="font-bold">{patient.bloodGroup || '-'}</p>
                   )}
@@ -417,10 +423,10 @@ export default function PatientProfile() {
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase">Anemia Status</label>
                 {editMode === 'medical' ? (
-                  <select 
+                  <select
                     className="w-full mt-1 p-2 border rounded-lg text-sm"
                     value={formData.anemiaStatus}
-                    onChange={e => setFormData({...formData, anemiaStatus: e.target.value as any})}
+                    onChange={e => setFormData({ ...formData, anemiaStatus: e.target.value as any })}
                   >
                     <option value="normal">Normal</option>
                     <option value="mild">Mild</option>
@@ -428,11 +434,10 @@ export default function PatientProfile() {
                     <option value="severe">Severe</option>
                   </select>
                 ) : (
-                  <div className={`mt-1 inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                    patient.anemiaStatus === 'severe' ? 'bg-red-100 text-red-700' : 
-                    patient.anemiaStatus === 'moderate' ? 'bg-orange-100 text-orange-700' : 
-                    'bg-green-100 text-green-700'
-                  }`}>
+                  <div className={`mt-1 inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${patient.anemiaStatus === 'severe' ? 'bg-red-100 text-red-700' :
+                    patient.anemiaStatus === 'moderate' ? 'bg-orange-100 text-orange-700' :
+                      'bg-green-100 text-green-700'
+                    }`}>
                     {patient.anemiaStatus || 'Normal'}
                   </div>
                 )}
@@ -441,23 +446,23 @@ export default function PatientProfile() {
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase">Medical History</label>
                 {editMode === 'medical' ? (
-                  <textarea 
+                  <textarea
                     className="w-full mt-1 p-2 border rounded-lg text-sm"
                     value={formData.medicalHistory || ''}
-                    onChange={e => setFormData({...formData, medicalHistory: e.target.value})}
+                    onChange={e => setFormData({ ...formData, medicalHistory: e.target.value })}
                   />
                 ) : (
                   <p className="text-sm text-slate-800 mt-1">{patient.medicalHistory || 'None recorded'}</p>
                 )}
               </div>
-              
+
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase">Current Medications</label>
                 {editMode === 'medical' ? (
-                  <textarea 
+                  <textarea
                     className="w-full mt-1 p-2 border rounded-lg text-sm"
                     value={formData.currentMedications || ''}
-                    onChange={e => setFormData({...formData, currentMedications: e.target.value})}
+                    onChange={e => setFormData({ ...formData, currentMedications: e.target.value })}
                   />
                 ) : (
                   <p className="text-sm text-slate-800 mt-1">{patient.currentMedications || 'None'}</p>
@@ -467,10 +472,10 @@ export default function PatientProfile() {
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase">Complications</label>
                 {editMode === 'medical' ? (
-                  <textarea 
+                  <textarea
                     className="w-full mt-1 p-2 border rounded-lg text-sm border-red-200 bg-red-50"
                     value={formData.complications || ''}
-                    onChange={e => setFormData({...formData, complications: e.target.value})}
+                    onChange={e => setFormData({ ...formData, complications: e.target.value })}
                   />
                 ) : (
                   <p className="text-sm text-red-700 mt-1 font-medium">{patient.complications || 'None reported'}</p>
@@ -485,7 +490,7 @@ export default function PatientProfile() {
           <section className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-slate-800">Children</h3>
-              <button 
+              <button
                 onClick={() => {
                   setIsAddingChild(!isAddingChild);
                   setEditingChildId(null);
@@ -502,32 +507,32 @@ export default function PatientProfile() {
             {(isAddingChild || editingChildId) && (
               <div className="bg-slate-100 p-4 rounded-xl space-y-3 border border-slate-200 animate-in fade-in slide-in-from-top-2">
                 <h4 className="text-sm font-bold text-slate-700">{editingChildId ? 'Edit Child' : 'New Child Details'}</h4>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="Child Name"
                   className="w-full p-2 rounded-lg text-sm"
                   value={childFormData.name || ''}
-                  onChange={e => setChildFormData({...childFormData, name: e.target.value})}
+                  onChange={e => setChildFormData({ ...childFormData, name: e.target.value })}
                 />
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   className="w-full p-2 rounded-lg text-sm"
                   value={childFormData.dob || ''}
-                  onChange={e => setChildFormData({...childFormData, dob: e.target.value})}
+                  onChange={e => setChildFormData({ ...childFormData, dob: e.target.value })}
                 />
                 <div className="flex gap-2">
-                  <select 
+                  <select
                     className="flex-1 p-2 rounded-lg text-sm"
                     value={childFormData.gender}
-                    onChange={e => setChildFormData({...childFormData, gender: e.target.value as any})}
+                    onChange={e => setChildFormData({ ...childFormData, gender: e.target.value as any })}
                   >
                     <option value="male">Boy</option>
                     <option value="female">Girl</option>
                   </select>
-                  <select 
+                  <select
                     className="flex-1 p-2 rounded-lg text-sm"
                     value={childFormData.bloodGroup || ''}
-                    onChange={e => setChildFormData({...childFormData, bloodGroup: e.target.value})}
+                    onChange={e => setChildFormData({ ...childFormData, bloodGroup: e.target.value })}
                   >
                     <option value="">Blood Group</option>
                     <option value="A+">A+</option>
@@ -550,9 +555,8 @@ export default function PatientProfile() {
                   <div key={child.id} className="space-y-2">
                     <div className="bg-white p-4 rounded-xl border border-slate-100 flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
-                          child.gender === 'female' ? 'bg-pink-100 text-pink-500' : 'bg-blue-100 text-blue-500'
-                        }`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${child.gender === 'female' ? 'bg-pink-100 text-pink-500' : 'bg-blue-100 text-blue-500'
+                          }`}>
                           {child.gender === 'female' ? '👧' : '👦'}
                         </div>
                         <div>
@@ -560,7 +564,7 @@ export default function PatientProfile() {
                           <p className="text-xs text-slate-500">DOB: {child.dob} • {child.bloodGroup || 'N/A'}</p>
                         </div>
                       </div>
-                      <button 
+                      <button
                         onClick={() => {
                           startEditingChild(child);
                           setIsAddingChild(false);
@@ -579,6 +583,100 @@ export default function PatientProfile() {
           </section>
         )}
 
+        {/* --- PREGNANCY TAB (for pregnant women only) --- */}
+        {activeTab === 'pregnancy' && patient.userType === 'pregnant' && (
+          <section className="space-y-4">
+            <div className="bg-gradient-to-r from-pink-50 to-rose-50 p-4 rounded-xl border border-pink-200">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 bg-pink-500 rounded-full flex items-center justify-center">
+                  <UserPlus size={24} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-pink-800">Pregnancy Status</h3>
+                  <p className="text-sm text-pink-600 capitalize">
+                    {patient.pregnancyStage?.replace('_', ' ') || 'Stage not specified'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Key Dates */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <h4 className="font-bold text-slate-700 mb-3 text-sm">Key Dates</h4>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                  <span className="text-sm text-slate-600">Last Checkup</span>
+                  <span className="font-bold text-slate-800">
+                    {patientLogs[patientLogs.length - 1]
+                      ? new Date(patientLogs[patientLogs.length - 1].date).toLocaleDateString()
+                      : 'Not recorded'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-rose-50 rounded-lg">
+                  <span className="text-sm text-rose-600">Next ANC Visit</span>
+                  <span className="font-bold text-rose-700">
+                    {patient.nextCheckup
+                      ? new Date(patient.nextCheckup).toLocaleDateString()
+                      : 'Not scheduled'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Danger Signs to Watch */}
+            <div className="bg-red-50 p-4 rounded-xl border border-red-200">
+              <h4 className="font-bold text-red-700 mb-3 text-sm flex items-center gap-2">
+                <AlertTriangle size={16} /> Danger Signs - Call ASHA immediately
+              </h4>
+              <ul className="grid grid-cols-2 gap-2 text-xs text-red-600">
+                <li className="flex items-start gap-1">• Heavy bleeding</li>
+                <li className="flex items-start gap-1">• Severe headache</li>
+                <li className="flex items-start gap-1">• Blurred vision</li>
+                <li className="flex items-start gap-1">• High fever</li>
+                <li className="flex items-start gap-1">• Convulsions</li>
+                <li className="flex items-start gap-1">• Swelling of face/hands</li>
+                <li className="flex items-start gap-1">• Baby not moving</li>
+                <li className="flex items-start gap-1">• Water breaking early</li>
+              </ul>
+            </div>
+
+            {/* ANC Checklist */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <h4 className="font-bold text-slate-700 mb-3 text-sm">ANC Checklist</h4>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg">
+                  <CheckCircle2 size={16} className="text-green-600" />
+                  <span className="text-sm text-green-700">Registration completed</span>
+                </div>
+                <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                  <Activity size={16} className="text-slate-400" />
+                  <span className="text-sm text-slate-600">Blood test - {patient.bloodGroup ? 'Done' : 'Pending'}</span>
+                </div>
+                <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                  <HeartPulse size={16} className="text-slate-400" />
+                  <span className="text-sm text-slate-600">Weight monitoring</span>
+                </div>
+                <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                  <Activity size={16} className="text-slate-400" />
+                  <span className="text-sm text-slate-600">TT Vaccination</span>
+                </div>
+                <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                  <Activity size={16} className="text-slate-400" />
+                  <span className="text-sm text-slate-600">IFA tablets distributed</span>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => navigate(`/asha/visit?patientId=${realId}`)}
+              className="w-full bg-pink-600 hover:bg-pink-700"
+            >
+              <Activity className="w-4 h-4 mr-2" />
+              Record ANC Visit
+            </Button>
+          </section>
+        )}
+
         {/* --- SCHEMES TAB --- */}
         {activeTab === 'schemes' && (
           <section>
@@ -592,13 +690,13 @@ export default function PatientProfile() {
                     <div className="flex-1">
                       <h4 className="font-bold text-slate-900 text-sm">{scheme.title}</h4>
                       <p className="text-xs text-slate-500 line-clamp-1 mb-2">{scheme.description}</p>
-                      
+
                       {isEnrolled ? (
                         <div className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
                           <CheckCircle2 size={12} /> {t('schemes.enrolled')}
                         </div>
                       ) : (
-                        <button 
+                        <button
                           onClick={() => handleEnroll(scheme.id)}
                           className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700"
                         >
@@ -616,9 +714,9 @@ export default function PatientProfile() {
 
       {/* Digital Card Modal */}
       {showCard && (
-        <DigitalHealthCard 
-          profile={patient} 
-          onClose={() => setShowCard(false)} 
+        <DigitalHealthCard
+          profile={patient}
+          onClose={() => setShowCard(false)}
         />
       )}
     </div>

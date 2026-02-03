@@ -1,22 +1,24 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+'use client'
+
+import { useState, useCallback, useEffect, useRef } from 'react'
 
 interface TextToSpeechState {
-    isSpeaking: boolean;
-    isPaused: boolean;
-    isSupported: boolean;
-    voices: SpeechSynthesisVoice[];
-    currentVoice: SpeechSynthesisVoice | null;
+    isSpeaking: boolean
+    isPaused: boolean
+    isSupported: boolean
+    voices: SpeechSynthesisVoice[]
+    currentVoice: SpeechSynthesisVoice | null
 }
 
 interface UseTextToSpeechReturn {
-    state: TextToSpeechState;
-    speak: (text: string) => void;
-    pause: () => void;
-    resume: () => void;
-    stop: () => void;
-    setVoice: (voice: SpeechSynthesisVoice) => void;
-    setRate: (rate: number) => void;
-    setPitch: (pitch: number) => void;
+    state: TextToSpeechState
+    speak: (text: string) => void
+    pause: () => void
+    resume: () => void
+    stop: () => void
+    setVoice: (voice: SpeechSynthesisVoice) => void
+    setRate: (rate: number) => void
+    setPitch: (pitch: number) => void
 }
 
 export function useTextToSpeech(language: string = 'hi-IN'): UseTextToSpeechReturn {
@@ -26,86 +28,98 @@ export function useTextToSpeech(language: string = 'hi-IN'): UseTextToSpeechRetu
         isSupported: false,
         voices: [],
         currentVoice: null,
-    });
+    })
 
-    const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-    const rateRef = useRef<number>(1.0);
-    const pitchRef = useRef<number>(1.0);
+    const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
+    const rateRef = useRef<number>(1.0)
+    const pitchRef = useRef<number>(1.0)
 
-    // Load voices with priority: Google > Microsoft > Default
+    // Load voices with priority: Google > Microsoft > Female Hindi > Default
     useEffect(() => {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            setState(prev => ({ ...prev, isSupported: true }));
+            setState(prev => ({ ...prev, isSupported: true }))
 
             const selectBestVoice = (voices: SpeechSynthesisVoice[], langCode: string): SpeechSynthesisVoice | null => {
-                const langPrefix = langCode.split('-')[0];
+                const langPrefix = langCode.split('-')[0]
 
                 // Filter voices for the target language
                 const langVoices = voices.filter(v =>
                     v.lang.startsWith(langPrefix) || v.lang.toLowerCase().includes(langPrefix)
-                );
+                )
 
                 // Priority 1: Google voices (best quality for Indian languages)
                 const googleVoice = langVoices.find(v =>
                     v.name.toLowerCase().includes('google')
-                );
-                if (googleVoice) return googleVoice;
+                )
+                if (googleVoice) return googleVoice
 
                 // Priority 2: Microsoft voices
                 const microsoftVoice = langVoices.find(v =>
                     v.name.toLowerCase().includes('microsoft') || v.name.toLowerCase().includes('azure')
-                );
-                if (microsoftVoice) return microsoftVoice;
+                )
+                if (microsoftVoice) return microsoftVoice
 
-                // Priority 3: Female voices (for Asha Didi persona)
+                // Priority 3: Female Hindi voices (for Asha Didi persona)
                 const femaleVoice = langVoices.find(v =>
                     v.name.toLowerCase().includes('female') ||
                     v.name.toLowerCase().includes('lekha') ||
                     v.name.toLowerCase().includes('aditi') ||
-                    v.name.toLowerCase().includes('raveena')
-                );
-                if (femaleVoice) return femaleVoice;
+                    v.name.toLowerCase().includes('raveena') ||
+                    v.name.toLowerCase().includes('swara')
+                )
+                if (femaleVoice) return femaleVoice
 
                 // Priority 4: Any voice for the language
-                if (langVoices.length > 0) return langVoices[0];
+                if (langVoices.length > 0) return langVoices[0]
 
                 // Priority 5: English fallback
-                const englishVoice = voices.find(v => v.lang.startsWith('en'));
-                if (englishVoice) return englishVoice;
+                const englishVoice = voices.find(v => v.lang.startsWith('en'))
+                if (englishVoice) return englishVoice
 
                 // Priority 6: First available
-                return voices[0] || null;
-            };
+                return voices[0] || null
+            }
 
             const loadVoices = () => {
-                const availableVoices = window.speechSynthesis.getVoices();
-                const preferredVoice = selectBestVoice(availableVoices, language);
+                const availableVoices = window.speechSynthesis.getVoices()
+                const preferredVoice = selectBestVoice(availableVoices, language)
 
                 setState(prev => ({
                     ...prev,
                     voices: availableVoices,
                     currentVoice: preferredVoice,
-                }));
-            };
+                }))
+
+                if (availableVoices.length > 0) {
+                    console.log('[TTS] Loaded voices:', availableVoices.length)
+                    console.log('[TTS] Selected voice:', preferredVoice?.name, preferredVoice?.lang)
+                }
+            }
 
             // Load voices (may be async in some browsers)
-            loadVoices();
-            window.speechSynthesis.onvoiceschanged = loadVoices;
+            loadVoices()
+            window.speechSynthesis.onvoiceschanged = loadVoices
         }
-    }, [language]);
+    }, [language])
 
     // Update voice when language changes
     useEffect(() => {
         if (state.voices.length > 0) {
-            const langPrefix = language.split('-')[0];
-            const matchingVoice = state.voices.find(v =>
+            const langPrefix = language.split('-')[0]
+
+            // Find best voice for new language
+            const googleVoice = state.voices.find(v =>
+                v.lang.startsWith(langPrefix) && v.name.toLowerCase().includes('google')
+            )
+            const matchingVoice = googleVoice || state.voices.find(v =>
                 v.lang.startsWith(langPrefix)
-            );
+            )
+
             if (matchingVoice) {
-                setState(prev => ({ ...prev, currentVoice: matchingVoice }));
+                setState(prev => ({ ...prev, currentVoice: matchingVoice }))
             }
         }
-    }, [language, state.voices]);
+    }, [language, state.voices])
 
     // Clean text for speech - remove markdown, emojis, and special characters
     const cleanTextForSpeech = (text: string): string => {
@@ -125,91 +139,96 @@ export function useTextToSpeech(language: string = 'hi-IN'): UseTextToSpeechRetu
             .replace(/^[\s]*[-•]\s*/gm, '')
             // Remove extra whitespace
             .replace(/\s+/g, ' ')
-            .trim();
-    };
+            .trim()
+    }
 
     const speak = useCallback((text: string) => {
-        if (!state.isSupported || !text) return;
+        if (!state.isSupported || !text) return
 
         // Cancel any ongoing speech
-        window.speechSynthesis.cancel();
+        window.speechSynthesis.cancel()
 
         // Clean the text before speaking
-        const cleanedText = cleanTextForSpeech(text);
-        if (!cleanedText) return;
+        const cleanedText = cleanTextForSpeech(text)
+        if (!cleanedText) return
 
-        const utterance = new SpeechSynthesisUtterance(cleanedText);
-        utterance.rate = rateRef.current;
-        utterance.pitch = pitchRef.current;
+        console.log('[TTS] Speaking:', cleanedText.substring(0, 100) + '...')
+
+        const utterance = new SpeechSynthesisUtterance(cleanedText)
+        utterance.rate = rateRef.current
+        utterance.pitch = pitchRef.current
 
         if (state.currentVoice) {
-            utterance.voice = state.currentVoice;
+            utterance.voice = state.currentVoice
+            utterance.lang = state.currentVoice.lang
         }
 
         utterance.onstart = () => {
-            setState(prev => ({ ...prev, isSpeaking: true, isPaused: false }));
-        };
+            console.log('[TTS] Started speaking')
+            setState(prev => ({ ...prev, isSpeaking: true, isPaused: false }))
+        }
 
         utterance.onend = () => {
-            setState(prev => ({ ...prev, isSpeaking: false, isPaused: false }));
-        };
+            console.log('[TTS] Finished speaking')
+            setState(prev => ({ ...prev, isSpeaking: false, isPaused: false }))
+        }
 
         utterance.onerror = (event) => {
-            console.error('Speech synthesis error:', event.error);
-            setState(prev => ({ ...prev, isSpeaking: false, isPaused: false }));
-        };
+            console.error('[TTS] Error:', event.error)
+            setState(prev => ({ ...prev, isSpeaking: false, isPaused: false }))
+        }
 
         utterance.onpause = () => {
-            setState(prev => ({ ...prev, isPaused: true }));
-        };
+            setState(prev => ({ ...prev, isPaused: true }))
+        }
 
         utterance.onresume = () => {
-            setState(prev => ({ ...prev, isPaused: false }));
-        };
+            setState(prev => ({ ...prev, isPaused: false }))
+        }
 
-        utteranceRef.current = utterance;
-        window.speechSynthesis.speak(utterance);
-    }, [state.isSupported, state.currentVoice]);
+        utteranceRef.current = utterance
+        window.speechSynthesis.speak(utterance)
+    }, [state.isSupported, state.currentVoice])
 
     const pause = useCallback(() => {
         if (state.isSupported && state.isSpeaking) {
-            window.speechSynthesis.pause();
+            window.speechSynthesis.pause()
         }
-    }, [state.isSupported, state.isSpeaking]);
+    }, [state.isSupported, state.isSpeaking])
 
     const resume = useCallback(() => {
         if (state.isSupported && state.isPaused) {
-            window.speechSynthesis.resume();
+            window.speechSynthesis.resume()
         }
-    }, [state.isSupported, state.isPaused]);
+    }, [state.isSupported, state.isPaused])
 
     const stop = useCallback(() => {
         if (state.isSupported) {
-            window.speechSynthesis.cancel();
-            setState(prev => ({ ...prev, isSpeaking: false, isPaused: false }));
+            window.speechSynthesis.cancel()
+            setState(prev => ({ ...prev, isSpeaking: false, isPaused: false }))
         }
-    }, [state.isSupported]);
+    }, [state.isSupported])
 
     const setVoice = useCallback((voice: SpeechSynthesisVoice) => {
-        setState(prev => ({ ...prev, currentVoice: voice }));
-    }, []);
+        setState(prev => ({ ...prev, currentVoice: voice }))
+    }, [])
 
     const setRate = useCallback((rate: number) => {
-        rateRef.current = Math.max(0.5, Math.min(2, rate));
-    }, []);
+        rateRef.current = Math.max(0.5, Math.min(2, rate))
+    }, [])
 
     const setPitch = useCallback((pitch: number) => {
-        pitchRef.current = Math.max(0.5, Math.min(2, pitch));
-    }, []);
+        pitchRef.current = Math.max(0.5, Math.min(2, pitch))
+    }, [])
 
     // Cleanup on unmount
     useEffect(() => {
         return () => {
             if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
+                window.speechSynthesis.cancel()
             }
-        };
-    }, []);
+        }
+    }, [])
 
     return {
         state,
@@ -220,7 +239,7 @@ export function useTextToSpeech(language: string = 'hi-IN'): UseTextToSpeechRetu
         setVoice,
         setRate,
         setPitch,
-    };
+    }
 }
 
-export default useTextToSpeech;
+export default useTextToSpeech

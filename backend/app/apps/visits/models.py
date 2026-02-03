@@ -62,11 +62,11 @@ class Visit(Base):
     
     # Status tracking
     status: Mapped[VisitStatus] = mapped_column(
-        Enum(VisitStatus), 
+        Enum(VisitStatus, values_callable=lambda x: [e.value for e in x]), 
         default=VisitStatus.SCHEDULED
     )
     priority: Mapped[VisitPriority] = mapped_column(
-        Enum(VisitPriority), 
+        Enum(VisitPriority, values_callable=lambda x: [e.value for e in x]), 
         default=VisitPriority.NORMAL
     )
     

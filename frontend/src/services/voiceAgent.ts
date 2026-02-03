@@ -1,31 +1,32 @@
+/**
+ * Voice Agent Service - End-to-end voice processing pipeline
+ * 
+ * This service handles:
+ * 1. Audio transcription via Whisper API
+ * 2. AI chat with ASHA Didi via Gemini
+ * 3. Text-to-speech playback
+ * 4. Emergency detection and logging
+ */
+
 import apiClient from '../lib/api';
 import { useStore } from '../store/useStore';
 
-// Emergency keywords in Hindi and English
-const EMERGENCY_KEYWORDS = [
-    // Hindi
-    'खून', 'bleeding', 'बहुत दर्द', 'तेज़ दर्द', 'severe pain',
-    'behosh', 'बेहोश', 'unconscious', 'chakkar', 'चक्कर', 'dizzy',
-    'bukhar', 'बुखार', 'fever', 'emergency', 'इमरजेंसी',
-    'help', 'मदद', 'bachao', 'बचाओ', 'jaldi', 'जल्दी',
-    'hospital', 'अस्पताल', 'doctor', 'डॉक्टर',
-    // Danger signs
-    'baby not moving', 'बच्चा नहीं हिल रहा', 'convulsion', 'दौरा',
-    'water broke', 'पानी टूट गया', 'labour', 'प्रसव पीड़ा',
-    'heavy bleeding', 'ज्यादा खून', 'can\'t breathe', 'सांस नहीं आ रही'
-];
+// ============================================================================
+// Types
+// ============================================================================
 
 export interface TranscriptionResult {
     transcript: string;
     language: string;
-    confidence?: number;
+    confidence: number;
+    duration?: number;
 }
 
 export interface ChatResponse {
     message: string;
     isEmergency: boolean;
-    intent?: string;
-    category?: string;
+    intent: string | null;
+    category: string | null;
 }
 
 export interface VoiceAgentResult {
@@ -33,20 +34,25 @@ export interface VoiceAgentResult {
     response: string;
     language: string;
     isEmergency: boolean;
-    extracted_data?: Record<string, unknown>;
-    should_trigger_sos?: boolean;
+    should_trigger_sos: boolean;
 }
 
-// Check if message contains emergency keywords
-function detectEmergency(message: string): boolean {
-    const lowerMessage = message.toLowerCase();
-    return EMERGENCY_KEYWORDS.some(keyword =>
-        lowerMessage.includes(keyword.toLowerCase())
-    );
+export interface ProcessVoiceResult {
+    success: boolean;
+    transcription: string;
+    extractedData: Record<string, unknown>;
+    confidenceScore: number;
+    missingFields: string[];
+    followUpQuestion: string | null;
+    isComplete: boolean;
 }
+
+// ============================================================================
+// Transcription Functions
+// ============================================================================
 
 /**
- * Transcribe audio using Whisper API (via backend)
+ * Transcribe audio blob using Whisper API
  */
 export async function transcribeAudio(
     audioBlob: Blob,
@@ -54,7 +60,7 @@ export async function transcribeAudio(
 ): Promise<TranscriptionResult> {
     const formData = new FormData();
 
-    // Determine file extension based on blob type
+    // Determine extension from blob type
     const mimeType = audioBlob.type || 'audio/webm';
     let extension = 'webm';
     if (mimeType.includes('mp4')) extension = 'mp4';
@@ -67,16 +73,15 @@ export async function transcribeAudio(
         formData.append('language', language);
     }
 
-    console.log('[VoiceAgent] Sending audio to transcription API...', {
+    console.log('[VoiceAgent] Sending audio for transcription...', {
         size: audioBlob.size,
         type: mimeType,
         language
     });
 
     const response = await apiClient.post('/voice/transcribe', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data',
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000 // 120s timeout for transcription
     });
 
     console.log('[VoiceAgent] Transcription result:', response.data);
@@ -84,97 +89,96 @@ export async function transcribeAudio(
     return {
         transcript: response.data.transcript || '',
         language: response.data.language || language || 'hi',
-        confidence: response.data.confidence,
+        confidence: response.data.confidence || 0.9,
+        duration: response.data.duration
     };
 }
 
+// ============================================================================
+// Chat Functions
+// ============================================================================
+
 /**
- * Get AI chat response from Gemini via backend
+ * Get AI chat response from ASHA Didi
  */
 export async function getChatResponse(
     message: string,
     language: string = 'hi',
-    context?: string
+    conversationHistory: Array<{ role: string; content: string }> = []
 ): Promise<ChatResponse> {
-    const isEmergency = detectEmergency(message);
+    console.log('[VoiceAgent] Getting chat response...', { message: message.substring(0, 50), language });
 
-    // If emergency detected, return immediate response
-    if (isEmergency) {
-        const emergencyResponse = language === 'hi'
-            ? 'यह गंभीर लग रहा है। कृपया तुरंत अपनी ASHA दीदी को बुलाएं या नजदीकी अस्पताल जाएं। क्या आप ठीक हैं?'
-            : 'This sounds serious. Please call your ASHA worker immediately or go to the nearest hospital. Are you okay?';
+    const response = await apiClient.post('/voice/chat', {
+        message,
+        language,
+        conversation_history: conversationHistory
+    });
 
-        return {
-            message: emergencyResponse,
-            isEmergency: true,
-            intent: 'emergency',
-            category: 'emergency'
-        };
-    }
+    console.log('[VoiceAgent] Chat response:', response.data);
 
-    try {
-        const response = await apiClient.post('/ai/health-query', {
-            query: message,
-            language,
-            context,
-        });
-
-        return {
-            message: response.data.guidance || response.data.message,
-            isEmergency: false,
-            intent: response.data.intent,
-            category: response.data.category,
-        };
-    } catch (error) {
-        console.error('[VoiceAgent] Chat API error:', error);
-        const fallbackMessage = language === 'hi'
-            ? 'माफ़ करें, अभी कुछ तकनीकी समस्या है। कृपया थोड़ी देर बाद कोशिश करें।'
-            : 'Sorry, there is a technical issue. Please try again later.';
-
-        return {
-            message: fallbackMessage,
-            isEmergency: false,
-        };
-    }
+    return {
+        message: response.data.message || '',
+        isEmergency: response.data.isEmergency || false,
+        intent: response.data.intent,
+        category: response.data.category
+    };
 }
 
 /**
- * Run full voice agent pipeline: Transcribe → Chat → Extract → Log
+ * Get AI health guidance (simple query-response)
  */
-export async function runVoiceAgent(params: {
-    audioBlob?: Blob;
-    transcript?: string;
-    beneficiaryId?: string;
-    language?: string;
-}): Promise<VoiceAgentResult | null> {
-    const { audioBlob, transcript: providedTranscript, beneficiaryId, language = 'hi' } = params;
-    const store = useStore.getState();
+export async function getHealthGuidance(
+    query: string,
+    language: string = 'hi'
+): Promise<string> {
+    try {
+        const response = await apiClient.post('/ai/health-query', {
+            query,
+            language
+        });
+        return response.data.guidance || response.data.message || '';
+    } catch (error) {
+        console.error('[VoiceAgent] Health guidance error:', error);
+        return language === 'hi'
+            ? 'माफ़ करें, अभी जवाब देने में समस्या है।'
+            : 'Sorry, there was an issue getting a response.';
+    }
+}
 
-    let transcript = providedTranscript || '';
-    let detectedLanguage = language;
+// ============================================================================
+// Full Pipeline Functions
+// ============================================================================
 
-    // Step 1: Transcribe audio if provided
-    if (audioBlob && !providedTranscript) {
-        try {
-            const transcriptionResult = await transcribeAudio(audioBlob, language);
-            transcript = transcriptionResult.transcript;
-            detectedLanguage = transcriptionResult.language;
-        } catch (error) {
-            console.error('[VoiceAgent] Transcription failed:', error);
-            return null;
-        }
+/**
+ * Complete voice processing pipeline:
+ * 1. Transcribe audio
+ * 2. Get AI response
+ * 3. Log interaction
+ * 4. Trigger SOS if emergency
+ */
+export async function processVoiceInput(
+    audioBlob: Blob,
+    preferredLanguage: string = 'hi',
+    beneficiaryId?: string
+): Promise<VoiceAgentResult> {
+    console.log('[VoiceAgent] Starting voice processing pipeline...');
+
+    // Step 1: Transcribe audio
+    const transcription = await transcribeAudio(audioBlob, preferredLanguage);
+    const transcript = transcription.transcript;
+    const detectedLanguage = transcription.language || preferredLanguage;
+
+    if (!transcript || transcript.trim() === '') {
+        throw new Error('No speech detected. Please try again.');
     }
 
-    if (!transcript || transcript.trim().length === 0) {
-        console.warn('[VoiceAgent] No transcript available');
-        return null;
-    }
+    console.log('[VoiceAgent] Transcript:', transcript);
 
-    // Step 2: Get AI chat response
+    // Step 2: Get AI response
     const chatResponse = await getChatResponse(transcript, detectedLanguage);
 
     // Step 3: Determine if this requires SOS trigger
-    const shouldTriggerSOS = chatResponse.isEmergency && beneficiaryId;
+    const shouldTriggerSOS = !!(chatResponse.isEmergency && beneficiaryId);
 
     // Step 4: Log the interaction to database
     try {
@@ -196,6 +200,7 @@ export async function runVoiceAgent(params: {
     // Step 5: Trigger SOS if needed
     if (shouldTriggerSOS && beneficiaryId) {
         try {
+            const store = useStore.getState();
             await store.triggerSOS(beneficiaryId);
             console.log('[VoiceAgent] SOS triggered for beneficiary:', beneficiaryId);
         } catch (error) {
@@ -213,22 +218,37 @@ export async function runVoiceAgent(params: {
 }
 
 /**
- * Get health advice using Gemini API
+ * Process voice for ASHA workers - extracts structured visit data
  */
-export async function getHealthAdvice(
-    query: string,
+export async function processAshaVoice(
+    audioBlob: Blob,
     language: string = 'hi'
-): Promise<string> {
-    try {
-        const response = await getChatResponse(query, language);
-        return response.message;
-    } catch (error) {
-        console.error('[VoiceAgent] Health advice error:', error);
-        return language === 'hi'
-            ? 'माफ़ करें, अभी जवाब देने में समस्या है। कृपया अपनी ASHA दीदी से संपर्क करें।'
-            : 'Sorry, there is an issue getting a response. Please contact your ASHA worker.';
-    }
+): Promise<ProcessVoiceResult> {
+    const formData = new FormData();
+
+    const mimeType = audioBlob.type || 'audio/webm';
+    let extension = 'webm';
+    if (mimeType.includes('mp4')) extension = 'mp4';
+    else if (mimeType.includes('wav')) extension = 'wav';
+
+    formData.append('audio', audioBlob, `recording.${extension}`);
+    formData.append('language', language);
+
+    console.log('[VoiceAgent] Processing ASHA voice recording...');
+
+    const response = await apiClient.post('/voice/process', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000 // 120s timeout for full processing
+    });
+
+    console.log('[VoiceAgent] ASHA voice processing result:', response.data);
+
+    return response.data;
 }
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
 
 /**
  * Extract structured visit data from voice transcription (for ASHA workers)
@@ -238,7 +258,7 @@ export async function extractVisitData(
 ): Promise<Record<string, unknown>> {
     try {
         const response = await apiClient.post('/ai/extract-visit-data', {
-            transcription,
+            text: transcription,
         });
         return response.data;
     } catch (error) {
@@ -247,10 +267,58 @@ export async function extractVisitData(
     }
 }
 
+/**
+ * Get chat history for a beneficiary
+ */
+export async function getChatHistory(
+    beneficiaryId?: string,
+    limit: number = 20
+): Promise<Array<{
+    id: string;
+    user_message: string;
+    ai_response: string;
+    language: string;
+    is_emergency: boolean;
+    created_at: string;
+}>> {
+    try {
+        const params: Record<string, unknown> = { limit };
+        if (beneficiaryId) {
+            params.beneficiary_id = beneficiaryId;
+        }
+
+        const response = await apiClient.get('/voice/history', { params });
+        return response.data;
+    } catch (error) {
+        console.error('[VoiceAgent] Failed to get chat history:', error);
+        return [];
+    }
+}
+
+/**
+ * Get emergency count for ASHA dashboard
+ */
+export async function getEmergencyCount(): Promise<number> {
+    try {
+        const response = await apiClient.get('/voice/emergency-count');
+        return response.data.emergency_count || 0;
+    } catch (error) {
+        console.error('[VoiceAgent] Failed to get emergency count:', error);
+        return 0;
+    }
+}
+
+// ============================================================================
+// Exports
+// ============================================================================
+
 export default {
     transcribeAudio,
     getChatResponse,
-    runVoiceAgent,
-    getHealthAdvice,
+    getHealthGuidance,
+    processVoiceInput,
+    processAshaVoice,
     extractVisitData,
+    getChatHistory,
+    getEmergencyCount
 };

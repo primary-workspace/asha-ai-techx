@@ -1,13 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
+import { useToast } from '../../store/useToast';
 import { Button } from '../../components/ui/Button';
-import { ArrowLeft, Upload, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function CreateScheme() {
   const navigate = useNavigate();
   const addScheme = useStore(state => state.addScheme);
+  const { addToast } = useToast();
+  const { t } = useTranslation();
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -34,17 +39,28 @@ export default function CreateScheme() {
     setFormData({ ...formData, benefits: [...formData.benefits, ''] });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    addScheme({
-      ...formData,
-      status: 'active',
-      targetAudience: {
-        pregnancyStage: ['trimester_1', 'trimester_2', 'trimester_3'], // Defaulting for demo
-        economicStatus: ['bpl']
-      }
-    });
-    navigate('/partner/schemes');
+    setIsSubmitting(true);
+    
+    try {
+      await addScheme({
+        ...formData,
+        status: 'active',
+        targetAudience: {
+          pregnancyStage: ['trimester_1', 'trimester_2', 'trimester_3'],
+          economicStatus: ['bpl']
+        }
+      });
+      
+      addToast(t('common.success'), 'success');
+      navigate('/partner/schemes');
+    } catch (error) {
+      console.error(error);
+      addToast(t('common.error'), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -53,12 +69,11 @@ export default function CreateScheme() {
         <button onClick={() => navigate('/partner/schemes')} className="p-2 hover:bg-slate-100 rounded-full">
           <ArrowLeft className="w-5 h-5 text-slate-600" />
         </button>
-        <h1 className="text-xl font-bold text-slate-800">Launch New Campaign</h1>
+        <h1 className="text-xl font-bold text-slate-800">{t('partner.create_campaign')}</h1>
       </nav>
 
       <main className="p-6 max-w-3xl mx-auto">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          {/* Progress Bar */}
           <div className="h-2 bg-slate-100">
             <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${(step / 2) * 100}%` }} />
           </div>
@@ -67,12 +82,12 @@ export default function CreateScheme() {
             {step === 1 && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-800 mb-2">Campaign Basics</h2>
+                  <h2 className="text-2xl font-bold text-slate-800 mb-2">{t('partner.campaign_basics')}</h2>
                   <p className="text-slate-500">Set up the identity of your microsite.</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Campaign Title</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{t('partner.campaign_title')}</label>
                   <input 
                     required
                     type="text" 
@@ -84,12 +99,12 @@ export default function CreateScheme() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Description (Microsite Intro)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{t('partner.description')}</label>
                   <textarea 
                     required
                     rows={4}
                     className="w-full p-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Describe the scheme, its goals, and why people should apply..."
+                    placeholder="Describe the scheme..."
                     value={formData.description}
                     onChange={e => setFormData({...formData, description: e.target.value})}
                   />
@@ -112,7 +127,7 @@ export default function CreateScheme() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Budget (₹)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">{t('partner.budget')} (₹)</label>
                     <input 
                       type="number" 
                       className="w-full p-3 rounded-xl border border-slate-300"
@@ -121,7 +136,7 @@ export default function CreateScheme() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">{t('partner.start_date')}</label>
                     <input 
                       type="date" 
                       className="w-full p-3 rounded-xl border border-slate-300"
@@ -132,7 +147,7 @@ export default function CreateScheme() {
                 </div>
 
                 <Button type="button" onClick={() => setStep(2)} className="w-full bg-indigo-600 hover:bg-indigo-700">
-                  Next: Benefits & Criteria
+                  Next: {t('partner.benefits_rules')}
                 </Button>
               </div>
             )}
@@ -140,12 +155,12 @@ export default function CreateScheme() {
             {step === 2 && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-800 mb-2">Benefits & Rules</h2>
+                  <h2 className="text-2xl font-bold text-slate-800 mb-2">{t('partner.benefits_rules')}</h2>
                   <p className="text-slate-500">Define what beneficiaries get and who is eligible.</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Key Benefits (Bullet Points)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Key Benefits</label>
                   {formData.benefits.map((benefit, idx) => (
                     <div key={idx} className="mb-2 flex gap-2">
                       <input 
@@ -163,7 +178,7 @@ export default function CreateScheme() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Target Audience (Tags)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">{t('partner.target_audience')}</label>
                   <div className="flex flex-wrap gap-2">
                     {['BPL', 'Trimester 1', 'Trimester 2', 'Trimester 3', 'Anemia', 'High Risk'].map(tag => (
                       <label key={tag} className="inline-flex items-center px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 cursor-pointer hover:bg-indigo-50 hover:border-indigo-200">
@@ -176,10 +191,10 @@ export default function CreateScheme() {
 
                 <div className="flex gap-4 pt-4">
                   <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">
-                    Back
+                    {t('common.back')}
                   </Button>
-                  <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700">
-                    <CheckCircle2 className="w-4 h-4 mr-2" /> Launch Campaign
+                  <Button type="submit" isLoading={isSubmitting} className="flex-1 bg-green-600 hover:bg-green-700">
+                    <CheckCircle2 className="w-4 h-4 mr-2" /> {t('partner.launch_scheme')}
                   </Button>
                 </div>
               </div>

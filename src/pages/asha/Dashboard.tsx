@@ -1,125 +1,219 @@
 import { useStore } from '../../store/useStore';
-import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, AlertCircle, Mic, QrCode, CalendarClock, ChevronRight, Users, ClipboardList } from 'lucide-react';
+import { MapPin, AlertCircle, CalendarClock, ChevronRight, Users, ArrowUpRight, Syringe, Baby, UserPlus, Flower2, User } from 'lucide-react';
+import { RoleLayout } from '../../components/layout/RoleLayout';
+import { GlassCard } from '../../components/ui/GlassCard';
+import { useTranslation } from '../../hooks/useTranslation';
+import { VACCINE_SCHEDULE } from '../../data/vaccines';
+import { differenceInWeeks, isSameDay, parseISO } from 'date-fns';
 
 export default function AshaDashboard() {
-  const { beneficiaries, alerts } = useStore();
+  const { beneficiaries, alerts, children, healthLogs } = useStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
-  // Filter high risk
-  const highRiskPatients = beneficiaries.filter(b => b.riskLevel === 'high' || b.riskLevel === 'medium');
   const activeAlerts = alerts.filter(a => a.status === 'open');
 
+  // Filter out patients who have already been visited today
+  const highRiskPatients = beneficiaries.filter(b => {
+    const isRisk = b.riskLevel === 'high' || b.riskLevel === 'medium';
+    
+    // Check if a log exists for this beneficiary with today's date
+    const visitedToday = healthLogs.some(log => {
+      if (log.beneficiaryId !== b.id) return false;
+      // Handle both ISO strings and Date objects safely
+      const logDate = typeof log.date === 'string' ? parseISO(log.date) : new Date(log.date);
+      return isSameDay(logDate, new Date());
+    });
+
+    return isRisk && !visitedToday;
+  });
+
+  // Logic to find children with upcoming vaccines
+  const dueVaccines = children.flatMap(child => {
+    const dob = new Date(child.dob);
+    const ageInWeeks = differenceInWeeks(new Date(), dob);
+    
+    // Find vaccines due within +/- 2 weeks that are NOT taken
+    const upcoming = VACCINE_SCHEDULE.filter(v => {
+      const isTaken = child.vaccinations?.includes(v.id);
+      if (isTaken) return false;
+      
+      const dueInWeeks = v.dueWeek - ageInWeeks;
+      return dueInWeeks <= 4 && dueInWeeks >= -4; // Due soon or slightly overdue
+    });
+
+    if (upcoming.length === 0) return [];
+
+    const mother = beneficiaries.find(b => b.id === child.beneficiaryId);
+    return upcoming.map(v => ({
+      childName: child.name,
+      motherName: mother?.name || 'Unknown',
+      vaccineName: v.name,
+      beneficiaryId: child.beneficiaryId,
+      isOverdue: v.dueWeek < ageInWeeks
+    }));
+  });
+
+  const StatCard = ({ title, count, subtitle, color, onClick }: any) => (
+    <div 
+      onClick={onClick}
+      className={`p-6 rounded-[2.5rem] ${color} cursor-pointer transition-transform hover:-translate-y-1 shadow-sm group`}
+    >
+      <div className="flex justify-between items-start mb-6">
+        <p className="text-xs font-bold tracking-widest opacity-60 uppercase">{subtitle}</p>
+        <div className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <ArrowUpRight size={16} className="text-black" />
+        </div>
+      </div>
+      <h3 className="text-5xl font-black mb-2 text-slate-900">{count}</h3>
+      <p className="font-bold text-xl text-slate-900">{title}</p>
+    </div>
+  );
+
+  const getPatientIcon = (type: string) => {
+    switch (type) {
+      case 'mother': return <Baby size={20} />;
+      case 'pregnant': return <UserPlus size={20} />;
+      case 'girl': return <Flower2 size={20} />;
+      default: return <User size={20} />;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      <header className="bg-teal-700 text-white p-6 sticky top-0 z-10 rounded-b-[2rem] shadow-lg">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">ASHA Dashboard</h1>
-            <p className="text-teal-200 text-sm">Sector 4, Village Rampur</p>
-          </div>
-          <Button variant="secondary" size="sm" onClick={() => navigate('/')} className="bg-teal-800 text-white border-none">Exit</Button>
-        </div>
+    <RoleLayout role="asha_worker" title={t('asha.dashboard')}>
+      <div className="space-y-6">
         
-        {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-4">
-          <button 
-            onClick={() => navigate('/asha/visit')}
-            className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 p-4 rounded-xl backdrop-blur-sm transition-all border border-white/10"
-          >
-            <Mic className="w-5 h-5 text-teal-200" />
-            <span className="font-bold">Log Visit</span>
-          </button>
-          <button 
-            onClick={() => navigate('/asha/scan')}
-            className="flex items-center justify-center gap-2 bg-white text-teal-800 p-4 rounded-xl shadow-lg hover:bg-teal-50 transition-all font-bold"
-          >
-            <QrCode className="w-5 h-5" />
-            <span>Scan Card</span>
-          </button>
-        </div>
-      </header>
-
-      <main className="p-4 space-y-6 -mt-2">
-        {/* Stats Row */}
-        <div className="flex gap-4 overflow-x-auto pb-2 px-2">
-          <button onClick={() => navigate('/asha/patients')} className="bg-white p-4 rounded-xl shadow-sm min-w-[140px] border border-slate-100 text-left hover:bg-slate-50 transition-colors">
-            <Users className="w-5 h-5 text-teal-600 mb-2" />
-            <p className="text-3xl font-bold text-slate-800">{beneficiaries.length}</p>
-            <p className="text-xs text-slate-500 uppercase font-bold mt-1">Total Patients</p>
-          </button>
-          <button onClick={() => navigate('/asha/alerts')} className="bg-white p-4 rounded-xl shadow-sm min-w-[140px] border border-slate-100 text-left hover:bg-slate-50 transition-colors">
-            <AlertCircle className="w-5 h-5 text-red-600 mb-2" />
-            <p className="text-3xl font-bold text-red-600">{activeAlerts.length}</p>
-            <p className="text-xs text-slate-500 uppercase font-bold mt-1">Active Alerts</p>
-          </button>
+          <StatCard 
+            title={t('nav.patients')} 
+            count={beneficiaries.length} 
+            subtitle={t('asha.patients_total')} 
+            color="bg-[#CCFBF1]" 
+            onClick={() => navigate('/asha/patients')} 
+          />
+          <StatCard 
+            title={t('nav.alerts')} 
+            count={activeAlerts.length} 
+            subtitle={t('asha.alerts_active')} 
+            color="bg-[#FFE4E6]" 
+            onClick={() => navigate('/asha/alerts')} 
+          />
         </div>
 
-        {/* Critical Alerts Preview */}
+        {/* Critical Alerts Section */}
         {activeAlerts.length > 0 && (
           <section>
-            <div className="flex justify-between items-center mb-3 px-2">
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <AlertCircle className="text-red-600 w-5 h-5" />
-                Critical Alerts
+            <div className="flex justify-between items-center mb-4 px-2">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <AlertCircle className="text-red-600 w-6 h-6" />
+                {t('asha.critical_alerts')}
               </h2>
-              <button onClick={() => navigate('/asha/alerts')} className="text-xs font-bold text-teal-600 uppercase">View All</button>
             </div>
             <div className="space-y-3">
               {activeAlerts.slice(0, 2).map(alert => {
                 const patient = beneficiaries.find(b => b.id === alert.beneficiaryId);
                 return (
-                  <div key={alert.id} className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
-                    <div className="flex justify-between items-start">
+                  <GlassCard key={alert.id} className="p-6 border-l-8 border-l-red-500 bg-red-50">
+                    <div className="flex justify-between items-center">
                       <div>
-                        <h3 className="font-bold text-red-900">{patient?.name || 'Unknown'}</h3>
-                        <p className="text-sm text-red-700 mt-1">SOS Triggered • {new Date(alert.timestamp).toLocaleTimeString()}</p>
+                        <h3 className="font-bold text-red-900 text-lg">{patient?.name || 'Unknown'}</h3>
+                        <p className="text-sm text-red-700 font-medium mt-1">SOS Triggered • {new Date(alert.timestamp).toLocaleTimeString()}</p>
                       </div>
-                      <Button size="sm" variant="danger" onClick={() => navigate('/asha/alerts')}>View</Button>
+                      <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
+                        <ChevronRight className="text-red-500" />
+                      </div>
                     </div>
-                  </div>
+                  </GlassCard>
                 );
               })}
             </div>
           </section>
         )}
 
-        {/* Tasks / Follow Ups */}
-        <section>
-          <div className="flex justify-between items-center mb-3 px-2">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <CalendarClock className="w-5 h-5 text-teal-600" />
-              Follow-Ups Due
+        {/* Vaccination Due Widget */}
+        {dueVaccines.length > 0 && (
+          <section>
+            <div className="flex justify-between items-center mb-4 px-2">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Syringe className="w-6 h-6 text-indigo-600" />
+                {t('asha.vaccines_due')}
+              </h2>
+              <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">
+                {dueVaccines.length} Due
+              </span>
+            </div>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+              {dueVaccines.map((item, idx) => (
+                <GlassCard 
+                  key={idx} 
+                  onClick={() => navigate(`/asha/patient/${item.beneficiaryId}`)}
+                  className="min-w-[240px] p-4 border-l-4 border-l-indigo-500 bg-indigo-50/50"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+                      <Baby size={20} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900">{item.childName}</h4>
+                      <p className="text-xs text-slate-500">M: {item.motherName}</p>
+                      <div className="mt-2 inline-flex items-center gap-1 px-2 py-1 bg-white rounded-md shadow-sm">
+                        <Syringe size={12} className={item.isOverdue ? "text-red-500" : "text-indigo-500"} />
+                        <span className={`text-xs font-bold ${item.isOverdue ? "text-red-600" : "text-indigo-600"}`}>
+                          {item.vaccineName}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* High Risk Follow Ups */}
+        <section className="pb-20">
+          <div className="flex justify-between items-center mb-4 px-2">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <CalendarClock className="w-6 h-6 text-teal-600" />
+              {t('asha.follow_ups')}
             </h2>
-             <button onClick={() => navigate('/asha/patients')} className="text-xs font-bold text-teal-600 uppercase">View All</button>
+             <button onClick={() => navigate('/asha/patients')} className="text-sm font-bold text-teal-600 uppercase tracking-wide">{t('common.view_all')}</button>
           </div>
           
           <div className="space-y-3">
-            {highRiskPatients.slice(0, 3).map(patient => (
-              <div 
-                key={patient.id} 
-                onClick={() => navigate(`/asha/patient/${patient.id}`)}
-                className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center active:scale-[0.98] transition-transform"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-800">{patient.name}</h3>
-                    {patient.riskLevel === 'high' && (
-                      <span className="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded-full font-bold">HIGH RISK</span>
-                    )}
-                  </div>
-                  <div className="flex items-center text-slate-500 text-sm mt-1">
-                    <MapPin className="w-3 h-3 mr-1" />
-                    <span>Sector 4 • Due Today</span>
-                  </div>
-                </div>
-                <ChevronRight className="text-slate-300" />
+            {highRiskPatients.length === 0 ? (
+              <div className="text-center p-8 bg-white rounded-xl border border-dashed border-slate-300">
+                <p className="text-slate-400 text-sm font-medium">All high-risk visits completed for today! 🎉</p>
               </div>
-            ))}
+            ) : (
+              highRiskPatients.slice(0, 5).map(patient => (
+                <GlassCard 
+                  key={patient.id} 
+                  onClick={() => navigate(`/asha/patient/${patient.id}`)}
+                  className="p-5 flex justify-between items-center"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm ${
+                      patient.riskLevel === 'high' ? 'bg-red-500' : 'bg-orange-500'
+                    }`}>
+                      {getPatientIcon(patient.userType)}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-lg">{patient.name}</h3>
+                      <div className="flex items-center text-slate-500 text-sm mt-1 font-medium">
+                        <MapPin className="w-4 h-4 mr-1" />
+                        <span>{patient.address || 'Location not set'} • Due Today</span>
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight className="text-slate-300" />
+                </GlassCard>
+              ))
+            )}
           </div>
         </section>
-      </main>
-    </div>
+      </div>
+    </RoleLayout>
   );
 }

@@ -21,7 +21,7 @@ export default function SchemeCard({ scheme, isEnrolled, onEnroll }: Props) {
         <p className="text-slate-600 text-sm mb-4 line-clamp-3">{scheme.description}</p>
         
         <div className="space-y-2 mb-4">
-          {scheme.benefits.slice(0, 2).map((benefit, idx) => (
+          {(scheme.benefits || []).slice(0, 2).map((benefit, idx) => (
             <div key={idx} className="flex items-start gap-2 text-xs font-medium text-slate-700">
               <Check className="w-4 h-4 text-green-500 shrink-0" />
               <span>{benefit}</span>

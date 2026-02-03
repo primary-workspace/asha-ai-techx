@@ -3,18 +3,19 @@ import { useStore } from '../../store/useStore';
 import { Button } from '../../components/ui/Button';
 import { ArrowLeft, Users, IndianRupee, Calendar, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function SchemeDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { schemes, enrollments, beneficiaries } = useStore();
+  const { t } = useTranslation();
   
   const scheme = schemes.find(s => s.id === id);
   const schemeEnrollments = enrollments.filter(e => e.schemeId === id);
 
   if (!scheme) return <div>Scheme not found</div>;
 
-  // Mock data for chart
   const enrollmentData = [
     { name: 'Week 1', value: 12 },
     { name: 'Week 2', value: 45 },
@@ -32,7 +33,6 @@ export default function SchemeDetails() {
       </nav>
 
       <main className="p-6 max-w-7xl mx-auto space-y-6">
-        {/* Header Card */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row gap-6">
           <img src={scheme.heroImage} alt={scheme.title} className="w-full md:w-64 h-40 object-cover rounded-xl" />
           <div className="flex-1">
@@ -50,14 +50,14 @@ export default function SchemeDetails() {
               <div className="flex items-center gap-2 text-slate-600">
                 <Users className="w-5 h-5 text-indigo-600" />
                 <div>
-                  <p className="text-xs uppercase font-bold text-slate-400">Enrolled</p>
+                  <p className="text-xs uppercase font-bold text-slate-400">{t('schemes.enrolled')}</p>
                   <p className="font-bold">{isNaN(Number(scheme.enrolledCount)) ? 0 : scheme.enrolledCount}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-slate-600">
                 <IndianRupee className="w-5 h-5 text-green-600" />
                 <div>
-                  <p className="text-xs uppercase font-bold text-slate-400">Budget</p>
+                  <p className="text-xs uppercase font-bold text-slate-400">{t('partner.budget')}</p>
                   <p className="font-bold">₹{((scheme.budget || 0) / 100000).toFixed(2)}L</p>
                 </div>
               </div>
@@ -73,9 +73,8 @@ export default function SchemeDetails() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Chart */}
           <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <h3 className="font-bold text-slate-800 mb-6">Enrollment Trend</h3>
+            <h3 className="font-bold text-slate-800 mb-6">{t('partner.enrollment_trend')}</h3>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={enrollmentData}>
@@ -88,10 +87,9 @@ export default function SchemeDetails() {
             </div>
           </div>
 
-          {/* Recent Enrollments */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-slate-800">Recent Beneficiaries</h3>
+              <h3 className="font-bold text-slate-800">{t('partner.recent_beneficiaries')}</h3>
               <Button variant="ghost" size="sm"><Download className="w-4 h-4" /></Button>
             </div>
             <div className="space-y-4">

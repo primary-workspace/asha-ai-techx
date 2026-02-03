@@ -1,273 +1,204 @@
-import React, { useState } from 'react';
-import { 
-  ChevronLeft, 
-  MoreHorizontal, 
-  Droplet, 
-  Calendar as CalendarIcon, 
-  Home, 
-  Activity, 
-  FileText, 
-  User,
-  Plus,
-  Flower2,
-  Circle
-} from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-// --- Types & Mock Data ---
-
-interface CycleData {
-  id: string;
-  startDate: string;
-  endDate: string;
-  year: string;
-  length: number;
-  periodLength: number;
-  fertileStartDay: number; // Day index relative to start
-  fertileEndDay: number;
-  ovulationDay: number;
-}
-
-const MOCK_CYCLES: CycleData[] = [
-  { 
-    id: '1', 
-    startDate: 'Aug 16', 
-    endDate: 'Aug 19', 
-    year: '2024', 
-    length: 28, 
-    periodLength: 4, 
-    fertileStartDay: 10,
-    fertileEndDay: 15,
-    ovulationDay: 14
-  },
-  { 
-    id: '2', 
-    startDate: 'Jul 18', 
-    endDate: 'Jul 22', 
-    year: '2024', 
-    length: 29, 
-    periodLength: 5, 
-    fertileStartDay: 11,
-    fertileEndDay: 16,
-    ovulationDay: 15
-  },
-  { 
-    id: '3', 
-    startDate: 'Jun 22', 
-    endDate: 'Jun 25', 
-    year: '2024', 
-    length: 26, 
-    periodLength: 4, 
-    fertileStartDay: 9,
-    fertileEndDay: 14,
-    ovulationDay: 13
-  },
-  { 
-    id: '4', 
-    startDate: 'May 23', 
-    endDate: 'May 28', 
-    year: '2024', 
-    length: 30, 
-    periodLength: 6, 
-    fertileStartDay: 12,
-    fertileEndDay: 17,
-    ovulationDay: 16
-  },
-  { 
-    id: '5', 
-    startDate: 'Apr 24', 
-    endDate: 'Apr 28', 
-    year: '2024', 
-    length: 29, 
-    periodLength: 5, 
-    fertileStartDay: 11,
-    fertileEndDay: 16,
-    ovulationDay: 15
-  },
-];
-
-// --- Components ---
-
-const Header = () => {
-  const navigate = useNavigate();
-  return (
-    <div className="flex items-center justify-between p-4 bg-white sticky top-0 z-20">
-      <button 
-        onClick={() => navigate(-1)}
-        className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 active:scale-95 transition-all"
-      >
-        <ChevronLeft className="w-6 h-6 text-slate-800" />
-      </button>
-      <h1 className="text-lg font-bold text-slate-900">My Cycles</h1>
-      <button className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 active:scale-95 transition-all">
-        <MoreHorizontal className="w-6 h-6 text-slate-800" />
-      </button>
-    </div>
-  );
-};
-
-const StatCard = ({ 
-  value, 
-  label, 
-  icon: Icon, 
-  iconColor, 
-  iconBg
-}: { 
-  value: string; 
-  label: string; 
-  icon: React.ElementType; 
-  iconColor: string; 
-  iconBg: string;
-}) => (
-  <div className="flex-1 bg-white p-5 rounded-3xl shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col items-center text-center">
-    <h3 className="text-2xl font-extrabold text-slate-900 mb-1">{value}</h3>
-    <p className="text-xs font-medium text-slate-400 mb-4">{label}</p>
-    <div className={`w-12 h-12 rounded-full ${iconBg} flex items-center justify-center`}>
-      <Icon className={`w-6 h-6 ${iconColor} fill-current`} />
-    </div>
-  </div>
-);
-
-const TimelineBar = ({ cycle }: { cycle: CycleData }) => {
-  // Visual calculation based on a fixed width assumption
-  // Total width represents roughly 30 days
-  const totalDays = 30;
-  
-  const getPercent = (days: number) => (days / totalDays) * 100;
-
-  return (
-    <div className="relative w-full h-2.5 bg-slate-100 rounded-full mt-4 overflow-visible">
-      {/* Period Segment (Pink) */}
-      <div 
-        className="absolute top-0 left-0 h-full bg-[#FF4D67] rounded-full z-10"
-        style={{ width: `${getPercent(cycle.periodLength)}%` }}
-      />
-
-      {/* Fertile Segment (Yellow) */}
-      <div 
-        className="absolute top-0 h-full bg-[#FFC107] rounded-full z-0"
-        style={{ 
-          left: `${getPercent(cycle.fertileStartDay)}%`,
-          width: `${getPercent(cycle.fertileEndDay - cycle.fertileStartDay)}%`
-        }}
-      />
-
-      {/* Ovulation Dot (Purple) */}
-      <div 
-        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-[#7C3AED] border-2 border-white rounded-full z-20 shadow-sm"
-        style={{ left: `${getPercent(cycle.ovulationDay)}%` }}
-      />
-    </div>
-  );
-};
-
-const CycleListItem = ({ cycle }: { cycle: CycleData }) => (
-  <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm mb-4 active:scale-[0.99] transition-transform">
-    <div className="flex justify-between items-start">
-      <div>
-        <h4 className="font-bold text-slate-900 text-sm">
-          {cycle.startDate} - {cycle.endDate}, {cycle.year}
-        </h4>
-      </div>
-      <div className="text-right">
-        <span className="text-lg font-bold text-slate-900">{cycle.length}</span>
-      </div>
-    </div>
-    
-    <TimelineBar cycle={cycle} />
-  </div>
-);
-
-const LegendItem = ({ label, color, type = 'dot' }: { label: string, color: string, type?: 'pill' | 'dot' }) => {
-  if (type === 'pill') {
-    return (
-      <span className={`px-4 py-1.5 rounded-full text-xs font-bold text-white ${color} shadow-md shadow-rose-200`}>
-        {label}
-      </span>
-    );
-  }
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className={`w-2 h-2 rounded-full ${color}`} />
-      <span className="text-xs font-medium text-slate-500">{label}</span>
-    </div>
-  );
-};
-
-const BottomNavItem = ({ icon: Icon, label, active }: { icon: React.ElementType; label: string; active?: boolean }) => (
-  <button className="flex flex-col items-center justify-center w-full py-1 space-y-1 group">
-    <Icon 
-      className={`w-6 h-6 transition-colors ${active ? 'text-[#FF4D67] fill-current' : 'text-slate-300 group-hover:text-slate-400'}`} 
-      strokeWidth={active ? 0 : 2}
-    />
-    <span className={`text-[10px] font-bold ${active ? 'text-[#FF4D67]' : 'text-slate-300 group-hover:text-slate-400'}`}>
-      {label}
-    </span>
-  </button>
-);
-
-// --- Main Screen ---
+import { ArrowLeft, Mic, Calendar, Edit2, Plus } from 'lucide-react';
+import { RoleLayout } from '../../components/layout/RoleLayout';
+import { useStore } from '../../store/useStore';
+import { calculateCycleInsights } from '../../utils/healthCalculators';
+import { format } from 'date-fns';
+import CalendarWidget from '../../components/beneficiary/CalendarWidget';
+import LogModal from '../../components/beneficiary/LogModal';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function CycleTrackerScreen() {
+  const navigate = useNavigate();
+  const { currentUser, beneficiaries, updateBeneficiaryProfile, dailyLogs } = useStore();
+  const { t } = useTranslation();
+  
+  const profile = beneficiaries.find(b => b.userId === currentUser?.id);
+  const [setupDate, setSetupDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+
+  const handleSetup = async () => {
+    if (profile && setupDate) {
+      await updateBeneficiaryProfile(profile.id, { lastPeriodDate: setupDate });
+    }
+  };
+
+  if (!profile || !profile.lastPeriodDate) {
+    return (
+      <RoleLayout role="beneficiary" hideHeader={true}>
+        <div className="min-h-screen bg-slate-50 p-6 flex flex-col justify-center">
+          <button onClick={() => navigate(-1)} className="absolute top-6 left-6 p-2 bg-white rounded-full shadow-sm">
+            <ArrowLeft className="w-6 h-6 text-slate-800" />
+          </button>
+          
+          <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 text-center">
+            <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-6 text-rose-500">
+              <Calendar size={40} />
+            </div>
+            <h1 className="text-2xl font-black text-slate-900 mb-2">{t('dash.setup')}</h1>
+            <p className="text-slate-500 font-medium mb-8">
+              {t('dash.setup_desc')}
+            </p>
+            
+            <input 
+              type="date" 
+              className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 font-bold text-slate-900 mb-6 focus:ring-2 focus:ring-rose-500 outline-none"
+              onChange={(e) => setSetupDate(e.target.value)}
+            />
+            
+            <button 
+              onClick={handleSetup}
+              disabled={!setupDate}
+              className="w-full py-4 bg-rose-600 text-white rounded-xl font-bold text-lg hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {t('common.submit')}
+            </button>
+          </div>
+        </div>
+      </RoleLayout>
+    );
+  }
+
+  const insights = calculateCycleInsights(profile.lastPeriodDate);
+  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+  const currentLog = dailyLogs.find(l => l.date === selectedDateStr && l.userId === currentUser?.id);
+
   return (
-    <div className="min-h-screen bg-[#FAFAFA] pb-28 font-sans max-w-md mx-auto relative shadow-2xl overflow-hidden">
-      <Header />
-
-      <div className="px-6 space-y-8 mt-2">
-        {/* Stats Row */}
-        <div className="flex gap-4">
-          <StatCard 
-            value="4 days" 
-            label="Average period" 
-            icon={Droplet} 
-            iconColor="text-[#FF4D67]" 
-            iconBg="bg-[#FFF0F3]" 
-          />
-          <StatCard 
-            value="28 days" 
-            label="Average cycle" 
-            icon={CalendarIcon} 
-            iconColor="text-[#7C3AED]" 
-            iconBg="bg-[#F3E8FF]" 
-          />
+    <RoleLayout role="beneficiary" hideHeader={true}>
+      <div className="min-h-screen bg-slate-50 p-4 pb-24">
+        
+        <div className="flex items-center justify-between mb-6">
+          <button onClick={() => navigate(-1)} className="p-2 bg-white rounded-full shadow-sm hover:bg-slate-100">
+            <ArrowLeft className="w-6 h-6 text-slate-800" />
+          </button>
+          <h1 className="text-lg font-bold text-slate-900">{t('tracker.title')}</h1>
+          <div className="w-10" />
         </div>
 
-        {/* Edit Button */}
-        <button className="w-full bg-[#FF4D67] hover:bg-[#E11D48] active:scale-[0.98] text-white font-bold py-4 rounded-full shadow-[0_10px_20px_rgba(255,77,103,0.3)] transition-all">
-          Edit Period
-        </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-rose-400 to-purple-500" />
+            
+            <div className="flex justify-between items-start mb-8 mt-2">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t('tracker.prediction')}</h3>
+              <span className="px-3 py-1 bg-purple-100 text-purple-600 rounded-full text-xs font-bold">{t('tracker.regular')}</span>
+            </div>
 
-        {/* History Section */}
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900">History</h2>
+            <div className="text-center mb-8">
+              <div className="flex items-baseline justify-center gap-2">
+                <span className="text-7xl font-black text-rose-500">{insights.daysToNextPeriod}</span>
+                <span className="text-xl font-bold text-slate-400">days</span>
+              </div>
+              <p className="text-slate-500 font-medium mt-2">{t('dash.days_to_period')}</p>
+              <p className="text-slate-900 font-bold mt-1">Expected: <span className="text-slate-900">{insights.nextPeriod}</span></p>
+            </div>
+
+            <div className="flex gap-3 justify-center">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-purple-200 bg-purple-50">
+                <div className="w-2 h-2 rounded-full bg-purple-500" />
+                <span className="text-xs font-bold text-purple-700">{t('tracker.fertile')}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Legend */}
-          <div className="flex items-center gap-4 overflow-x-auto pb-2 no-scrollbar">
-            <LegendItem label="All" color="bg-[#FF4D67]" type="pill" />
-            <LegendItem label="Period" color="bg-[#FF4D67]" />
-            <LegendItem label="Ovulation" color="bg-[#7C3AED]" />
-            <LegendItem label="Fertile" color="bg-[#FFC107]" />
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center relative overflow-hidden">
+             <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-full blur-3xl -mr-10 -mt-10" />
+             
+             <div className="w-16 h-16 bg-white rounded-full shadow-lg shadow-rose-100 flex items-center justify-center mb-4 relative z-10">
+               <Mic className="w-8 h-8 text-rose-500" />
+             </div>
+             
+             <h3 className="text-xl font-bold text-slate-900 mb-2 relative z-10">{t('tracker.voice_log')}</h3>
+             <p className="text-slate-400 text-sm font-medium mb-6 max-w-[200px] relative z-10">
+               {t('tracker.voice_desc')}
+             </p>
+
+             <button 
+               onClick={() => setIsLogModalOpen(true)}
+               className="w-full py-4 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-rose-200 hover:scale-[1.02] active:scale-[0.98] transition-all relative z-10"
+             >
+               {t('tracker.tap_speak')}
+             </button>
           </div>
 
-          {/* List */}
-          <div className="space-y-1">
-            {MOCK_CYCLES.map((cycle) => (
-              <CycleListItem key={cycle.id} cycle={cycle} />
-            ))}
+          <div className="md:col-span-2 lg:col-span-1">
+            <CalendarWidget 
+              selectedDate={selectedDate} 
+              onDateSelect={setSelectedDate} 
+            />
           </div>
+
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 flex flex-col">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">{t('tracker.health_log')}</h3>
+                <p className="text-xs text-slate-400 font-bold">{format(selectedDate, 'MMMM d, yyyy')}</p>
+              </div>
+              <button 
+                onClick={() => setIsLogModalOpen(true)}
+                className="px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-rose-100"
+              >
+                {currentLog ? <Edit2 size={12} /> : <Plus size={12} />}
+                {currentLog ? t('tracker.edit_log') : t('tracker.add_log')}
+              </button>
+            </div>
+
+            {currentLog ? (
+              <div className="space-y-4 flex-1">
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-xl shadow-sm">
+                    {currentLog.mood === 'Happy' ? '😊' : 
+                     currentLog.mood === 'Sad' ? '😔' : 
+                     currentLog.mood === 'Pain' ? '😣' : '😐'}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase">{t('tracker.mood')}</p>
+                    <p className="font-bold text-slate-900">{currentLog.mood}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {currentLog.symptoms.length > 0 ? (
+                    currentLog.symptoms.map(s => (
+                      <span key={s} className="px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold">
+                        {s}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">No symptoms recorded.</p>
+                  )}
+                </div>
+                
+                {currentLog.notes && (
+                  <div className="p-3 bg-slate-50 rounded-xl text-sm text-slate-600 italic">
+                    "{currentLog.notes}"
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
+                <p className="text-slate-400 font-medium text-sm">{t('tracker.no_logs')}</p>
+                <button 
+                  onClick={() => setIsLogModalOpen(true)}
+                  className="mt-4 text-rose-500 font-bold text-sm hover:underline"
+                >
+                  + {t('tracker.add_log')}
+                </button>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-2 py-3 flex justify-around items-center z-50 max-w-md mx-auto rounded-t-[2rem] shadow-[0_-5px_20px_rgba(0,0,0,0.03)]">
-        <BottomNavItem icon={Home} label="Home" />
-        <BottomNavItem icon={CalendarIcon} label="Calendar" />
-        <BottomNavItem icon={Activity} label="Tracker" active />
-        <BottomNavItem icon={FileText} label="Articles" />
-        <BottomNavItem icon={User} label="Account" />
-      </div>
-    </div>
+      <LogModal 
+        isOpen={isLogModalOpen} 
+        onClose={() => setIsLogModalOpen(false)} 
+        date={selectedDate} 
+      />
+    </RoleLayout>
   );
 }

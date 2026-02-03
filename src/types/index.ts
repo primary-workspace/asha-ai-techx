@@ -1,4 +1,5 @@
 export type Role = 'beneficiary' | 'asha_worker' | 'partner';
+export type Language = 'en' | 'hi' | 'bho' | 'pa' | 'mr';
 
 export interface User {
   id: string;
@@ -7,18 +8,41 @@ export interface User {
   avatar?: string;
 }
 
+export interface Child {
+  id: string;
+  beneficiaryId: string;
+  name: string;
+  dob: string; // YYYY-MM-DD
+  gender: 'male' | 'female';
+  bloodGroup?: string;
+  vaccinations?: string[]; // Array of vaccine names taken
+}
+
 export interface BeneficiaryProfile {
   id: string;
   userId: string;
   name: string;
-  pregnancyStage: 'trimester_1' | 'trimester_2' | 'trimester_3' | 'postpartum';
-  lastPeriodDate: string;
-  anemiaStatus: 'normal' | 'mild' | 'moderate' | 'severe';
-  riskLevel: 'low' | 'medium' | 'high';
-  location: { lat: number; lng: number };
-  linkedAshaId: string;
-  nextCheckup: string;
-  economicStatus?: 'bpl' | 'apl'; // Below/Above Poverty Line
+  // Enhanced Fields
+  userType: 'girl' | 'pregnant' | 'mother';
+  height?: number; // in cm
+  weight?: number; // in kg
+  bloodGroup?: string;
+  
+  pregnancyStage?: 'trimester_1' | 'trimester_2' | 'trimester_3' | 'postpartum'; 
+  lastPeriodDate?: string; 
+  anemiaStatus?: 'normal' | 'mild' | 'moderate' | 'severe';
+  riskLevel?: 'low' | 'medium' | 'high';
+  location?: { lat: number; lng: number }; // Made optional
+  gps_coords?: { lat: number; lng: number }; // New field matching DB
+  address?: string; // New field
+  linkedAshaId?: string;
+  nextCheckup?: string;
+  economicStatus?: 'bpl' | 'apl';
+
+  // New Extensive Fields
+  medicalHistory?: string;
+  currentMedications?: string;
+  complications?: string;
 }
 
 export interface HealthLog {
@@ -30,6 +54,16 @@ export interface HealthLog {
   symptoms: string[];
   mood: string;
   isEmergency: boolean;
+}
+
+export interface DailyLog {
+  id: string;
+  userId: string;
+  date: string; // YYYY-MM-DD
+  symptoms: string[];
+  mood: 'Happy' | 'Neutral' | 'Sad' | 'Tired' | 'Anxious' | 'Pain';
+  notes: string;
+  flow?: 'Light' | 'Medium' | 'Heavy';
 }
 
 export interface Alert {
@@ -46,7 +80,7 @@ export interface Scheme {
   title: string;
   provider: 'Govt' | 'NGO';
   description: string;
-  heroImage: string;
+  heroImage: string; 
   benefits: string[];
   eligibilityCriteria: string[];
   targetAudience: {
@@ -58,6 +92,7 @@ export interface Scheme {
   budget: number;
   enrolledCount: number;
   startDate: string;
+  category?: 'financial' | 'nutrition' | 'health';
 }
 
 export interface Enrollment {
@@ -65,6 +100,23 @@ export interface Enrollment {
   schemeId: string;
   beneficiaryId: string;
   status: 'pending' | 'approved' | 'rejected';
-  enrolledBy: string; // User ID (ASHA or Self)
+  enrolledBy: string; 
   date: string;
+}
+
+// --- Offline Sync Types ---
+export type SyncActionType = 
+  | 'ADD_DAILY_LOG' 
+  | 'ADD_HEALTH_LOG' 
+  | 'TRIGGER_SOS' 
+  | 'ENROLL_SCHEME'
+  | 'UPDATE_PROFILE'
+  | 'ADD_CHILD';
+
+export interface SyncQueueItem {
+  id: string;
+  type: SyncActionType;
+  payload: any;
+  timestamp: number;
+  retryCount: number;
 }

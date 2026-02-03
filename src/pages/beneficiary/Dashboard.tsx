@@ -1,128 +1,246 @@
 import { useStore } from '../../store/useStore';
-import VoiceAssistant from '../../components/VoiceAssistant';
 import SOSButton from '../../components/SOSButton';
-import { Pill, QrCode, Gift, Apple, BookOpen, ChevronRight } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
+import { Pill, Gift, Apple, BookOpen, QrCode, ArrowUpRight, Calendar, AlertCircle, Baby, Syringe, Heart, Stethoscope } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { calculateCycleInsights } from '../../utils/healthCalculators';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { RoleLayout } from '../../components/layout/RoleLayout';
+import { GlassCard } from '../../components/ui/GlassCard';
+import { format, addDays } from 'date-fns';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function BeneficiaryDashboard() {
-  const { currentUser, beneficiaries } = useStore();
+  const { currentUser, beneficiaries, ensureBeneficiaryProfile, children } = useStore();
   const navigate = useNavigate();
   const [ifaTaken, setIfaTaken] = useState(false);
+  const { t } = useTranslation();
   
-  const profile = beneficiaries.find(b => b.userId === currentUser?.id) || beneficiaries[0];
-  const insights = calculateCycleInsights(profile.lastPeriodDate);
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'beneficiary') {
+      const exists = beneficiaries.find(b => b.userId === currentUser.id);
+      if (!exists) {
+        ensureBeneficiaryProfile(currentUser.id, currentUser.name);
+      }
+    }
+  }, [currentUser, beneficiaries, ensureBeneficiaryProfile]);
+
+  const profile = beneficiaries.find(b => b.userId === currentUser?.id);
+  
+  if (!profile && currentUser) return <div className="p-10 text-center">{t('common.loading')}</div>;
+  if (!profile) return null;
+
+  const insights = profile.lastPeriodDate 
+    ? calculateCycleInsights(profile.lastPeriodDate) 
+    : null;
+
+  const isProfileIncomplete = !profile.weight || !profile.height || !profile.bloodGroup;
+  const myChildren = children.filter(c => c.beneficiaryId === profile.id);
+
+  const renderStatusCard = () => {
+    if (!insights) {
+      return (
+        <div 
+          onClick={() => navigate('/beneficiary/tracker')}
+          className="relative overflow-hidden rounded-[2.5rem] bg-[#FF8095] p-8 text-white shadow-sm cursor-pointer hover:scale-[1.01] transition-transform"
+        >
+          <div className="relative z-10">
+            <p className="text-xs font-bold tracking-widest uppercase opacity-80 mb-4">Get Started</p>
+            <h2 className="text-3xl font-black mb-2">{t('dash.setup')}</h2>
+            <p className="font-medium opacity-90 text-lg">{t('dash.setup_desc')}</p>
+          </div>
+          <div className="absolute right-4 bottom-4 w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+             <Calendar className="w-8 h-8" />
+          </div>
+        </div>
+      );
+    }
+
+    if (profile.userType === 'girl') {
+      return (
+        <div 
+          onClick={() => navigate('/beneficiary/tracker')}
+          className="relative overflow-hidden rounded-[2.5rem] bg-[#FF8095] p-8 text-white shadow-sm cursor-pointer hover:scale-[1.01] transition-transform"
+        >
+          <div className="relative z-10">
+            <p className="text-xs font-bold tracking-widest uppercase opacity-80 mb-4">Cycle Status</p>
+            <h2 className="text-5xl font-black mb-2">{insights.daysToNextPeriod} Days</h2>
+            <p className="font-medium opacity-90 text-lg">to next period ({insights.nextPeriod})</p>
+          </div>
+          <div className="absolute right-6 bottom-6 w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+             <Heart className="w-8 h-8 fill-current" />
+          </div>
+        </div>
+      );
+    }
+
+    if (profile.userType === 'pregnant') {
+      return (
+        <div 
+          onClick={() => navigate('/beneficiary/tracker')}
+          className="relative overflow-hidden rounded-[2.5rem] bg-[#C084FC] p-8 text-white shadow-sm cursor-pointer hover:scale-[1.01] transition-transform"
+        >
+          <div className="relative z-10">
+            <p className="text-xs font-bold tracking-widest uppercase opacity-80 mb-4">Pregnancy Progress</p>
+            <h2 className="text-5xl font-black mb-2">{insights.pregnancyWeek} Weeks</h2>
+            <p className="font-medium opacity-90 text-lg">Due Date: {insights.edd}</p>
+          </div>
+          <div className="absolute right-6 bottom-6 w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+             <Baby className="w-8 h-8" />
+          </div>
+        </div>
+      );
+    }
+
+    if (profile.userType === 'mother') {
+      const nextVaccine = format(addDays(new Date(), 14), 'dd MMM');
+      
+      return (
+        <div 
+          onClick={() => navigate('/beneficiary/schemes')}
+          className="relative overflow-hidden rounded-[2.5rem] bg-[#4ADE80] p-8 text-slate-900 shadow-sm cursor-pointer hover:scale-[1.01] transition-transform"
+        >
+          <div className="relative z-10">
+            <p className="text-xs font-bold tracking-widest uppercase opacity-60 mb-4">Child Health</p>
+            <h2 className="text-4xl font-black mb-2">Vaccine Due</h2>
+            <p className="font-medium opacity-80 text-lg">Polio Dose 2 on {nextVaccine}</p>
+          </div>
+          <div className="absolute right-6 bottom-6 w-16 h-16 bg-black/10 backdrop-blur-sm rounded-full flex items-center justify-center">
+             <Syringe className="w-8 h-8" />
+          </div>
+        </div>
+      );
+    }
+  };
 
   const MenuCard = ({ title, icon: Icon, color, onClick, subtext }: any) => (
-    <button 
+    <div 
       onClick={onClick}
-      className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group active:scale-95 transition-all"
+      className={`p-6 rounded-[2.5rem] ${color} text-slate-900 cursor-pointer transition-transform hover:-translate-y-1 shadow-sm relative overflow-hidden group`}
     >
-      <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-full ${color} flex items-center justify-center`}>
-          <Icon className="w-6 h-6 text-white" />
+      <div className="flex justify-between items-start mb-8">
+        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-black">
+          <Icon className="w-6 h-6" />
         </div>
-        <div className="text-left">
-          <h3 className="font-bold text-slate-800 text-lg">{title}</h3>
-          <p className="text-xs text-slate-500 font-medium">{subtext}</p>
+        <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <ArrowUpRight size={20} />
         </div>
       </div>
-      <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-slate-100">
-        <ChevronRight className="w-5 h-5 text-slate-400" />
+      
+      <div>
+        <p className="text-xs font-bold tracking-widest opacity-60 uppercase mb-2">{subtext}</p>
+        <h3 className="text-2xl font-bold leading-tight">{title}</h3>
       </div>
-    </button>
+    </div>
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      {/* Header */}
-      <div className="bg-rose-600 p-6 rounded-b-[2.5rem] shadow-xl text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-8 -mt-8 blur-2xl"></div>
-        <div className="relative z-10">
-          <div className="flex justify-between items-center mb-6">
-              <div>
-                <h1 className="text-2xl font-bold">Namaste, {profile.name.split(' ')[0]}</h1>
-                <p className="text-rose-100 text-sm">Stay Healthy, Stay Safe</p>
-              </div>
-              <Button variant="secondary" size="sm" onClick={() => navigate('/')} className="bg-white/20 text-white border-none hover:bg-white/30">Logout</Button>
-          </div>
-
-          {/* Main Insight Card */}
-          <div className="bg-white text-slate-800 p-5 rounded-2xl shadow-lg flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500 font-medium uppercase tracking-wider">Current Status</p>
-              <h2 className="text-3xl font-bold text-rose-600 mt-1">
-                {profile.pregnancyStage !== 'postpartum' ? `${insights.pregnancyWeek} Weeks` : 'Postpartum'}
-              </h2>
-              <p className="text-slate-600 text-sm font-medium mt-1">
-                {profile.pregnancyStage !== 'postpartum' ? `Due: ${insights.edd}` : 'Recovery Mode'}
-              </p>
-            </div>
-            <div className="h-16 w-16 rounded-full border-4 border-rose-100 flex items-center justify-center bg-rose-50">
-               <span className="text-2xl">🤰</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-6 space-y-6">
+    <RoleLayout role="beneficiary" title={`${t('dash.welcome')}, ${profile.name.split(' ')[0]}`}>
+      <div className="space-y-6">
         
-        {/* IFA Tablet Reminder */}
-        <div className="bg-gradient-to-r from-teal-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-lg">Weekly Iron Tablet</h3>
-              <p className="text-teal-100 text-sm">Did you take it today?</p>
+        {isProfileIncomplete && (
+          <div 
+            onClick={() => navigate('/beneficiary/card')}
+            className="bg-indigo-600 rounded-[2rem] p-6 text-white shadow-lg shadow-indigo-200 cursor-pointer hover:scale-[1.01] transition-transform flex items-center gap-4"
+          >
+            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+              <AlertCircle className="w-6 h-6" />
             </div>
-            <button 
-              onClick={() => setIfaTaken(!ifaTaken)}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${ifaTaken ? 'bg-white text-teal-600' : 'bg-black/20 text-white border-2 border-white/50'}`}
-            >
-              <Pill size={24} />
-            </button>
-        </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-lg">{t('dash.complete_profile')}</h3>
+              <p className="text-indigo-100 text-sm">{t('dash.complete_profile_desc')}</p>
+            </div>
+            <div className="bg-white text-indigo-600 px-4 py-2 rounded-full text-xs font-bold">
+              {t('dash.update')}
+            </div>
+          </div>
+        )}
 
-        {/* Menu Grid */}
-        <div className="grid grid-cols-1 gap-4">
+        {renderStatusCard()}
+
+        {/* Children's Health Section (For Mothers) */}
+        {profile.userType === 'mother' && myChildren.length > 0 && (
+          <section>
+            <h3 className="text-sm font-bold text-slate-500 uppercase mb-3 px-1">My Children</h3>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+              {myChildren.map(child => (
+                <GlassCard key={child.id} className="p-4 min-w-[200px] flex items-center gap-3 bg-blue-50 border-blue-100">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-xl shadow-sm">
+                    {child.gender === 'female' ? '👧' : '👦'}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900">{child.name}</h4>
+                    <p className="text-xs text-slate-500">Healthy</p>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Medications Reminder (If any) */}
+        {profile.currentMedications && (
+          <GlassCard className="p-5 bg-yellow-50 border-yellow-100">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 shrink-0">
+                <Stethoscope size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">Medications</h3>
+                <p className="text-sm text-slate-600 mt-1">{profile.currentMedications}</p>
+              </div>
+            </div>
+          </GlassCard>
+        )}
+
+        <GlassCard className="p-6 flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-xl text-slate-900">{t('dash.ifa')}</h3>
+            <p className="text-slate-500 font-medium">{t('dash.ifa_desc')}</p>
+          </div>
+          <button 
+            onClick={() => setIfaTaken(!ifaTaken)}
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${ifaTaken ? 'bg-green-500 text-white' : 'bg-slate-100 text-slate-400'}`}
+          >
+            <Pill size={24} />
+          </button>
+        </GlassCard>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <MenuCard 
-            title="My Benefits" 
-            subtext="Govt Schemes ( योजनाएं )"
+            title={t('menu.benefits')} 
+            subtext={t('menu.benefits_sub')}
             icon={Gift} 
-            color="bg-indigo-500" 
+            color="bg-[#E0E7FF]" 
             onClick={() => navigate('/beneficiary/schemes')} 
           />
           <MenuCard 
-            title="Food Guide" 
-            subtext="Nutrition ( पोषण )"
+            title={t('menu.nutrition')} 
+            subtext={t('menu.nutrition_sub')}
             icon={Apple} 
-            color="bg-green-500" 
+            color="bg-[#CCFBF1]" 
             onClick={() => navigate('/beneficiary/nutrition')} 
           />
           <MenuCard 
-            title="Health Tips" 
-            subtext="Education ( जानकारी )"
+            title={t('menu.education')} 
+            subtext={t('menu.education_sub')}
             icon={BookOpen} 
-            color="bg-orange-500" 
+            color="bg-[#FEF3C7]" 
             onClick={() => navigate('/beneficiary/education')} 
           />
            <MenuCard 
-            title="My Digital Card" 
-            subtext="Show to Doctor ( पहचान पत्र )"
+            title={t('menu.card')} 
+            subtext={t('menu.card_sub')}
             icon={QrCode} 
-            color="bg-slate-700" 
+            color="bg-slate-100" 
             onClick={() => navigate('/beneficiary/card')} 
           />
         </div>
 
-        {/* SOS Section */}
-        <section className="pt-4">
-          <h2 className="text-lg font-bold text-slate-800 mb-3 text-center">Emergency ( आपातकालीन )</h2>
+        <section className="pt-4 pb-20">
+          <h2 className="text-lg font-bold text-slate-900 mb-4 text-center">{t('dash.emergency')}</h2>
           <SOSButton beneficiaryId={profile.id} />
         </section>
       </div>
-
-      <VoiceAssistant />
-    </div>
+    </RoleLayout>
   );
 }

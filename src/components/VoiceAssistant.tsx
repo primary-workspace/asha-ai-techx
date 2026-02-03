@@ -4,7 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { simulateHindiResponse } from '../services/ai';
 import { clsx } from 'clsx';
 
-export default function VoiceAssistant() {
+interface VoiceAssistantProps {
+  customTrigger?: (onClick: () => void, isSpeaking: boolean) => React.ReactNode;
+}
+
+export default function VoiceAssistant({ customTrigger }: VoiceAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -45,19 +49,19 @@ export default function VoiceAssistant() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-24 right-4 left-4 md:left-auto md:w-80 bg-white rounded-2xl shadow-2xl p-6 border border-rose-100 z-50"
+            className="fixed bottom-24 right-4 left-4 md:left-auto md:w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 border border-rose-100 dark:border-slate-800 z-50"
           >
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
                   <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Asha" alt="Asha" className="w-8 h-8" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800">Asha Didi</h3>
-                  <p className="text-xs text-slate-500">AI Health Assistant</p>
+                  <h3 className="font-bold text-slate-800 dark:text-white">Asha Didi</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">AI Health Assistant</p>
                 </div>
               </div>
-              <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                 <X size={20} />
               </button>
             </div>
@@ -75,7 +79,7 @@ export default function VoiceAssistant() {
                   ))}
                 </div>
               ) : response ? (
-                <p className="text-lg font-medium text-slate-700 leading-relaxed">
+                <p className="text-lg font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
                   "{response}"
                 </p>
               ) : (
@@ -86,17 +90,21 @@ export default function VoiceAssistant() {
         )}
       </AnimatePresence>
 
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={handleMicClick}
-        className={clsx(
-          "fixed bottom-6 right-6 w-16 h-16 rounded-full shadow-xl flex items-center justify-center z-50 transition-colors",
-          isSpeaking ? "bg-green-500 animate-pulse" : "bg-rose-600 hover:bg-rose-700"
-        )}
-      >
-        {isSpeaking ? <Volume2 className="text-white w-8 h-8" /> : <Mic className="text-white w-8 h-8" />}
-      </motion.button>
+      {customTrigger ? (
+        customTrigger(handleMicClick, isSpeaking)
+      ) : (
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleMicClick}
+          className={clsx(
+            "fixed bottom-6 right-6 w-16 h-16 rounded-full shadow-xl flex items-center justify-center z-50 transition-colors",
+            isSpeaking ? "bg-green-500 animate-pulse" : "bg-rose-600 hover:bg-rose-700"
+          )}
+        >
+          {isSpeaking ? <Volume2 className="text-white w-8 h-8" /> : <Mic className="text-white w-8 h-8" />}
+        </motion.button>
+      )}
     </>
   );
 }

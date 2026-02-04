@@ -83,7 +83,7 @@ async def create_health_log(
             "bpSystolic": log_data.bp_systolic,
             "bpDiastolic": log_data.bp_diastolic
         },
-        **log_data.model_dump()
+        **log_data.model_dump(exclude={'vitals'})
     )
     
     db.add(new_log)

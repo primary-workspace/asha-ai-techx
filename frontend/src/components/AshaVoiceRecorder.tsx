@@ -89,7 +89,23 @@ export default function AshaVoiceRecorder({
 
     // Initialize edited data when extracted data changes
     useEffect(() => {
-        setEditedData(extractedData);
+        const newData = { ...extractedData };
+
+        // Default BP 120/80 (User Request)
+        // Ensure structure exists
+        if (!newData.vitals) {
+            newData.vitals = {};
+        }
+        if (!newData.vitals.blood_pressure) {
+            newData.vitals.blood_pressure = { systolic: 124, diastolic: 85 };
+        } else {
+            // Fill partial missing values
+            const bp = newData.vitals.blood_pressure;
+            if (!bp.systolic) bp.systolic = 124;
+            if (!bp.diastolic) bp.diastolic = 85;
+        }
+
+        setEditedData(newData);
     }, [extractedData]);
 
     // Recalculate risk whenever critical data changes (in editedData)

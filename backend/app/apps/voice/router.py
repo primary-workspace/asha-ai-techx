@@ -285,6 +285,14 @@ async def chat_with_asha_didi(
     if not request.message or not request.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
     
+    # Normalize language
+    lang = request.language.lower().strip()
+    if lang in ['hindi', 'hi-in']:
+        lang = 'hi'
+    elif lang in ['english', 'en-us']:
+        lang = 'en'
+    request.language = lang
+    
     print(f"[Chat] Message: {request.message[:50]}... Language: {request.language}")
     
     try:
@@ -420,6 +428,13 @@ async def log_chat_interaction(
     """
     from app.apps.voice.models import ChatLog
     
+    # Normalize language
+    lang = data.language_used.lower().strip()
+    if lang in ['hindi', 'hi-in']:
+        data.language_used = 'hi'
+    elif lang in ['english', 'en-us']:
+        data.language_used = 'en'
+
     try:
         chat_log = ChatLog(
             user_id=current_user.id if current_user else None,
